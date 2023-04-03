@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (c) 2022 Huawei Device Co., Ltd.
+#
+
+# net/newip/Kconfig
+config NEWIP
+	def_bool $(success,$(srctree)/scripts/ohos-check-dir.sh $(srctree)/net/newip)
+	depends on INET && NET
+	help
+	  Support for NewIP.
+
+config NEWIP_FAST_KEEPALIVE
+	bool "NewIP fast keepalive"
+	default n
+	depends on NEWIP
+	help
+	  Support for NewIP fast keepalive.
+
+config NEWIP_HOOKS
+	def_bool NEWIP && VENDOR_HOOKS
+	help
+	  Enable NewIP hooks implemented as tracepoints
+	  Allow NewIP modules to attach to tracepoint "hooks" defined via
+	  DECLARE_TRACE or DECLARE_HOOK
