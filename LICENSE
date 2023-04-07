@@ -1,4 +1,8 @@
-Valid-License-Identifier: GPL-2.0
+Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved.
+
+The newip subdirectories is licensed under GPL-2.0+.
+
+a) Valid-License-Identifier: GPL-2.0
 Valid-License-Identifier: GPL-2.0-only
 Valid-License-Identifier: GPL-2.0+
 Valid-License-Identifier: GPL-2.0-or-later
