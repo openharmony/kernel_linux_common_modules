@@ -57,27 +57,21 @@ Note:If the text contains special characters, please escape them according to th
 	<oatconfig>
 		<policylist>
 			<policy name="projectPolicy" desc="New IP protocol stack">
-				<policyitem type="license"   name="GPL" path="newip\src\linux-5.10\.*"                      desc="linux-5.10 kernel"/>
-				<policyitem type="license"   name="GPL" path="newip\src\common\.*"                          desc="NewIP common code"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_checksum.c"     desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_checksum.h"     desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_addr.c"         desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_addr.h"         desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_hdr_decap.c"    desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_hdr_encap.c"    desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\src\linux\net\newip\nip_hdr.h"          desc="NewIP common code (soft link file)"/>
-				<policyitem type="license"   name="GPL" path="newip\examples\.*"                            desc="NewIP examples code"/>
-				<policyitem type="license"   name="GPL" path="newip\tools\wireshark_cfg_for_newip.lua"      desc="WireShark lua configure for NewIP protocol stack"/>
-				<policyitem type="copyright" name="Huawei Device Co., Ltd." path="newip\src\.*"             desc="huawei copyright"/>
+				<policyitem type="compatibility" name="GPL" path=".*" rule="may" group="defaultGroup" filefilter="defaultFilter" desc=""/>
+				<policyitem type="license"   name="GPL" path=".*" rule="may" group="defaultGroup" filefilter="defaultFilter" desc=""/>
+				<policyitem type="copyright" name="Huawei Device Co., Ltd." path=".*" rule="must" group="defaultGroup" filefilter="defaultFilter" desc=""/>
 			</policy>
 		</policylist>
 		<filefilterlist>
-			<filefilter name="defaultFilter" desc="New IP protocol stack">
-				<filteritem type="filepath" name="newip\figures\.*"     desc="Describes the architecture of the NewIP"/>
-				<filteritem type="filepath" name="newip\apply_newip.sh" desc="shield"/>
-				<filteritem type="filepath" name="newip\LICENSE"        desc="license file"/>
-				<filteritem type="filepath" name="newip\README_zh.md"   desc="readme file"/>
-				<filteritem type="filepath" name="newip\README.md"      desc="readme file"/>
+			<filefilter name="defaultFilter" desc="">
+				<filteritem type="filepath" name="newip\figures\.*" desc=""/>
+				<filteritem type="filepath" name="newip\apply_newip.sh" desc=""/>
+				<filteritem type="filepath" name="newip\README_zh.md" desc=""/>
+				<filteritem type="filepath" name="newip\README.md" desc=""/>
+				<filteritem type="filepath" name="newip\README.OpenSource" desc=""/>
+				<filteritem type="filepath" name="LICENSE" desc=""/>
+				<filteritem type="filepath" name="README_zh.md" desc=""/>
+				<filteritem type="filepath" name="README.md"  desc=""/>
 			</filefilter>
 		</filefilterlist>
 	</oatconfig>
