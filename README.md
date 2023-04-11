@@ -34,15 +34,15 @@ kernel/linux/
 
 1. 【LICENSE】由于该仓下都为Linux模块，统一使用GPL系列协议，可参考NewIP添加如下：
 ```
-Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved.
+  Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved.
 
 + The newip subdirectories is licensed under GPL-2.0+.
 
-a) Valid-License-Identifier: GPL-2.0
+  a) Valid-License-Identifier: GPL-2.0
 ```
 2. 【OAT】OAT为OpenHarmony社区的自动化开源审视工具，OAT.xml本仓扫描规则，各模块文件规则不一，模块上库时需更新已有OAT.xml文档，具体修改方法请参考[OAT tool README](https://gitee.com/openharmony-sig/tools_oat/blob/master/README_zh.md) 。
 3. 【构建】当前内核树外模块可以通过软链接的方式参与内核构建，可由模块目录下独立脚本执行完成动态软链接创建，可参考[NewIP软链接创建脚本](https://gitee.com/openharmony-sig/kernel_linux_common_modules/blob/master/newip/apply_newip.sh) 。
-4. 【模块README】模块目录下提供介绍文件。文件需包含模块功能说明、架构目录说明、使用说明、构建说明、相关依赖仓说明等。可参考[NewIP README文件](https://gitee.com/openharmony-sig/kernel_linux_common_modules/blob/master/newip/README_zh.md) 。
+4. 【模块README】模块目录下提供介绍文件。文件需包含模块功能说明、架构目录说明、使用说明、构建说明、相关依赖仓说明等。[文档模板](https://gitee.com/openharmony/docs/blob/master/zh-cn/contribute/template/README-template.md)，[可参考NewIP README文件](https://gitee.com/openharmony-sig/kernel_linux_common_modules/blob/master/newip/README_zh.md) 。
 5. 【README.OpenSource】如本模块借鉴或使用某一开源软件则需要配置该文件，该文件描述被借鉴软件的信息，以NewIP（借鉴Linux下IPv4 IPv6协议）为例进行说明如下：
 ```
 [
@@ -60,12 +60,12 @@ a) Valid-License-Identifier: GPL-2.0
 
 ### 合入检视规则
 
-1. 【规则】内核完整性：同时对内核有侵入的修改提交，仅允许解耦后的插桩侵入修改，不得对已有接口（包括但不限于函数、参数、结构体、枚举类型等）进行修改、删除等操作。
-2. 【规则】内核构建独立性：内核不对仓下模块存在升级、构建依赖。谋爱删除或去配置后，内核可单独构建出版本。
-3. 【规则】内核运行独立性：内核不对仓下模块存在运行时依赖，即模块不参与编译，系统可启动且其它功能无异常。
-4. 【规则】可构建性：仓中内核独立解耦模块能够通过动态创建软链接形势参与内核构建，且实际参与具体平台产品构建。
-5. 【规则】可配置性：独立模块可通过配置，选择是否参与内核构建。需确定该模块适用产品形态（standard、small...）
-6. 【规则】License：linux common_modules仓统一适用GPL协议，新增模块需要配置仓下license文件。
-7. 【规则】OAT：合入模块需要更新OAT文件，评审需提供OAT扫描结果。
-8. 【规则】可读性：合入模块需独立目录，README.md文件需同步提交，如有对开源软件的使用或借鉴需同步提交README.OpenSource文件。使用 README\_XXX.md 来支持不同的语言，如: README\_en.md或README\_zh.md。
-9. 【建议】具备编译ko的条件，在ko构建能力上线后可适配整改构建出ko文件。
+1. 【规则】合入该仓模块在构建及运行时只能正向依赖内核，不得产生反向依赖。
+2. 【规则】合入时同步提供可编译方案，不可仅代码上库。模块可以通过构建和config配置选择参与版本构建，以适应不同形态产品内核模块的可选择性需求。
+3. 【规则】该仓为内核通用模块仓，合入模块不可依赖于特定芯片平台、产品、硬件等。
+4. 【规则】该仓使用GPL系列协议，新增模块需要配置仓LICENSE文件。
+5. 【规则】合入模块需更新OAT文件，并完成合入模块OAT扫描，评审时提供扫描报告。
+6. 【规则】合入模块需在该仓下创建独立目录，同时模块目录下同步提交README文件。
+7. 【规则】合入模块如有借鉴或使用三方开源模块的需要提供README.OpenSource文件。
+8. 【建议】具备编译ko的条件，在ko构建能力上线后可适配整改构建出ko模块。
+
