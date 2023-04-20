@@ -96,6 +96,12 @@ static struct ninet_ifaddr *nip_add_addr(struct ninet_dev *idev,
 		goto rcu_lock_out;
 	}
 
+	if (!netif_running(idev->dev)) {
+		nip_dbg("network interface is not running");
+		err = -ENODEV;
+		goto rcu_lock_out;
+	}
+
 	if (idev->cnf.disable_nip) {
 		err = -EACCES;
 		goto rcu_lock_out;
