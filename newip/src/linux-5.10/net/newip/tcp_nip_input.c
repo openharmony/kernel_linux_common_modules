@@ -340,7 +340,15 @@ coalesce_done:
 		goto insert;
 	}
 
-	if (after(seq, TCP_SKB_CB(tp->ooo_last_skb)->seq)) {
+	if (!before(seq, TCP_SKB_CB(tp->ooo_last_skb)->seq)) {
+		if (!after(end_seq, TCP_SKB_CB(tp->ooo_last_skb)->end_seq)) {
+			/* ooo_last_skb->seq <= seq, end_seq <= ooo_last_skb->end_seq */
+			nip_dbg("ooo_last_skb completely overlapping new skb, drop pkt");
+			NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPOFOMERGE);
+			tcp_nip_drop(sk, skb);
+			skb = NULL;
+			goto end;
+		}
 		tcp_nip_left_overlap(skb, tp->ooo_last_skb);
 		if (tcp_nip_ooo_try_coalesce(sk, tp->ooo_last_skb, skb, &fragstolen)) {
 			nip_dbg("ofo skb coalesce ooo_last_skb done");
@@ -1073,6 +1081,13 @@ int _tcp_nip_conn_request(struct request_sock_ops *rsk_ops,
 	inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
 
 	af_ops->init_req(req, sk, skb);
+
+	/* Based on the security context of the socket and packet,
+	 * this function calculates the security context of the connection
+	 * and checks whether establishing a TCP connection is permitted.
+	 */
+	if (security_inet_conn_request(sk, skb, req))
+		goto drop_and_free;
 
 	if (!isn)
 		isn = af_ops->init_seq(skb);
