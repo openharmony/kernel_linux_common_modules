@@ -428,7 +428,13 @@ static struct nip_rt_info *nip_route_info_create(struct nip_fib_config *cfg)
 		nip_dbg("fail to get ninet dev (ifindex=%u)", cfg->fc_ifindex);
 		goto out;
 	}
-
+	/* Do not add a route when the network port is not running
+	 * to avoid incorrect route selection
+	 */
+	if (!netif_running(idev->dev)) {
+		nip_dbg("network interface is not running");
+		goto out;
+	}
 	if (cfg->fc_metric == 0)
 		cfg->fc_metric = NIP_RT_PRIO_USER;
 
