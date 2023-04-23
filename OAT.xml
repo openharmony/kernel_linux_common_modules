@@ -56,22 +56,25 @@ Note:If the text contains special characters, please escape them according to th
 <configuration>
 	<oatconfig>
 		<policylist>
-			<policy name="projectPolicy" desc="New IP protocol stack">
-				<policyitem type="compatibility" name="GPL" path=".*" rule="may" group="defaultGroup" filefilter="defaultFilter" desc=""/>
-				<policyitem type="license"   name="GPL" path=".*" rule="may" group="defaultGroup" filefilter="defaultFilter" desc=""/>
-				<policyitem type="copyright" name="Huawei Device Co., Ltd." path=".*" rule="must" group="defaultGroup" filefilter="defaultFilter" desc=""/>
+			<policy name="newipPolicy" desc="New IP protocol stack">
+				<policyitem type="compatibility" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="license" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 			</policy>
 		</policylist>
 		<filefilterlist>
-			<filefilter name="defaultFilter" desc="">
-				<filteritem type="filepath" name="newip\figures\.*" desc=""/>
-				<filteritem type="filepath" name="newip\apply_newip.sh" desc=""/>
-				<filteritem type="filepath" name="newip\README_zh.md" desc=""/>
-				<filteritem type="filepath" name="newip\README.md" desc=""/>
-				<filteritem type="filepath" name="newip\README.OpenSource" desc=""/>
-				<filteritem type="filepath" name="LICENSE" desc=""/>
-				<filteritem type="filepath" name="README_zh.md" desc=""/>
-				<filteritem type="filepath" name="README.md"  desc=""/>
+			<filefilter name="copyrightPolicyFilter" desc="copyright description filter">
+				<filteritem type="filepath" name="LICENSES-GPL-2.0" desc="license file"/>
+				<filteritem type="filepath" name="LICENSES-Linux-syscall-note" desc="license file"/>
+				<filteritem type="filepath" name="newip/third_party/.*" desc="third party code path"/>
+			</filefilter>
+			<filefilter name="defaultPolicyFilter" desc="Files that do not need to be applied specified policy, will be merged with the filter items which has the same filefilter name">
+				<filteritem type="filepath" name="LICENSE" desc="license file"/>
+				<filteritem type="filepath" name="LICENSES-GPL-2.0" desc="license file"/>
+				<filteritem type="filepath" name="LICENSES-Linux-syscall-note" desc="license file"/>
+				<filteritem type="filepath" name="newip/third_party/linux-5.10/LICENSES/.*" desc="license file"/>
+			</filefilter>
+			<filefilter name="binaryFileTypePolicyFilter" desc="binary file filter">
+				<filteritem type="filepath" name="newip/figures/.*"/>
 			</filefilter>
 		</filefilterlist>
 	</oatconfig>
