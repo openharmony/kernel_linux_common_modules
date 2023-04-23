@@ -2,7 +2,7 @@
 
 ## 简介
 
-New IP在现有IP能力的基础上，以灵活轻量级报头和可变长多语义地址为基础，通过二三层协议融合，对协议去冗和压缩，减少冗余字节，实现高能效比，高净吞吐，提升通信效率。打造终端之间高效的横向通信，支撑超级终端的体验，实现异构网络的端到端互联。
+New IP在现有[IPv4/IPv6](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/log/?h=linux-5.10.y)能力的基础上，以灵活轻量级报头和可变长多语义地址为基础，通过二三层协议融合，对协议去冗和压缩，减少冗余字节，实现高能效比，高净吞吐，提升通信效率。打造终端之间高效的横向通信，支撑超级终端的体验，实现异构网络的端到端互联。
 
 目前WiFi协议报文，三层报头和地址开销使得报文开销大，传输效率较低。
 
@@ -38,8 +38,15 @@ New IP内核协议栈主要代码目录结构如下：
 ```
 # 代码路径 /kernel/linux/common_modules/newip
 ├── examples              # New IP 用户态样例代码
-├── src
+├── src                   # New IP 自研代码
 │   ├── common            # New IP 通用代码
+│   └── linux-5.10        # New IP Linux-5.10内核代码
+│       ├── net
+│       │   └── newip     # New IP 功能代码
+│       └── drivers
+│           └── net
+│               └── bt    # New IP 功能代码
+├── third_party           # New IP 三方引用+增量开发代码
 │   └── linux-5.10        # New IP Linux-5.10内核代码
 │       ├── include       # New IP 头文件
 │       │   ├── linux
