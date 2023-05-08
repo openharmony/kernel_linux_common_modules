@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+#
+# Config for the excutable permission manager
+#
+
+menu "Executable permission manager"
+
+config SECURITY_XPM
+	def_bool $(success, $(srctree)/scripts/ohos-check-dir.sh $(srctree)/security/xpm)
+	depends on 64BIT
+	help
+	  The Executable Permission Manager(XPM) control process execution
+	  by inserting control poliy into the security hook list, such as execv,
+	  mmap and etc. It can control not to execute an illegal signature
+	  process.
+
+config SECURITY_XPM_DEBUG
+	bool "Enables excutable permission manager debug mode"
+	depends on SECURITY_XPM
+	default n
+	help
+	  This option should only be enabled for debug test which can enable
+	  some debug interfaces to obtain detailed information.
+endmenu
+# a blank line must be existed
