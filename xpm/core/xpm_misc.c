@@ -75,7 +75,7 @@ static long xpm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static long xpm_compat_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
-	return xpm_ioctl(file, cmd, (uintptr_t)compat_ptr(arg));
+	return 0;
 }
 #endif
 
