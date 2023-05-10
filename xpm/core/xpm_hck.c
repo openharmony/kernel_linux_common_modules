@@ -211,6 +211,9 @@ void xpm_get_unmapped_area(unsigned long addr, unsigned long len,
 	if (!mm)
 		return;
 
+	if ((mm->xpm_region.addr_start == 0) && (mm->xpm_region.addr_end == 0))
+		return;
+
 	if ((map_flags & MAP_FIXED) && !(addr >= mm->xpm_region.addr_end ||
 		addr + len <= mm->xpm_region.addr_start)) {
 		xpm_log_error("xpm region not allow mmap with MAP_FIXED");
