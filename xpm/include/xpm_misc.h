@@ -6,9 +6,11 @@
 #ifndef _XPM_MISC_H
 #define _XPM_MISC_H
 
+#include <linux/types.h>
+
 struct xpm_region_info {
-	unsigned long addr_base;
-	unsigned long length;
+	uint64_t addr_base;
+	uint64_t length;
 };
 
 int xpm_register_misc_device(void);
