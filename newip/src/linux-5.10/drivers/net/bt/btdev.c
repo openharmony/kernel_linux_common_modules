@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Copyright (c) 2023 Huawei Device Co., Ltd.
+ *
+ * Description: Bluetooth virtual network device used in
+ * the NewIP over Bluetooth communication scenario.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2023-03-14
  */
 
 #include "btdev.h"
@@ -11,6 +18,10 @@ static int bt_seq_show(struct seq_file *m, void *v)
 {
 	struct bt_virnet *vnet = NULL;
 
+	if (unlikely(!bt_drv)) {
+		pr_err("bt seq show: invalid bt_drv");
+		return -EINVAL;
+	}
 	pr_devel("bt seq_show");
 	seq_printf(m, "Total device: %d (bitmap: 0x%X) Ring size: %d\n",
 		   bt_get_total_device(bt_drv), bt_drv->bitmap,
@@ -31,6 +42,11 @@ static int bt_seq_show(struct seq_file *m, void *v)
 static int bt_proc_open(struct inode *inode, struct file *file)
 {
 	pr_devel("bt proc_open");
+	if (unlikely(!inode) || unlikely(!file)) {
+		pr_err("bt proc open: invalid parameter");
+		return -EINVAL;
+	}
+
 	return single_open(file, bt_seq_show, PDE_DATA(inode));
 }
 
@@ -40,76 +56,85 @@ static struct proc_ops bt_proc_fops = {
 	.proc_lseek = seq_lseek,
 	.proc_release = single_release};
 
+static int __bt_virnet_open(struct file *filp, struct bt_virnet *vnet)
+{
+	struct net_device *ndev;
+
+	if ((filp->f_flags & O_ACCMODE) == O_RDONLY) {
+		if (unlikely(!atomic_dec_and_test(&vnet->io_file
+					 ->read_open_limit)))
+			goto read_twice_already;
+	} else if ((filp->f_flags & O_ACCMODE) == O_WRONLY) {
+		if (unlikely(!atomic_dec_and_test(&vnet->io_file
+					 ->write_open_limit)))
+			goto write_twice_already;
+	} else if ((filp->f_flags & O_ACCMODE) == O_RDWR) {
+		if (unlikely(!atomic_dec_and_test(&vnet->io_file
+					 ->read_open_limit)))
+			goto read_twice_already;
+		if (unlikely(!atomic_dec_and_test(&vnet->io_file
+					 ->write_open_limit)))
+			goto write_twice_already;
+	}
+
+	rtnl_lock();
+	ndev = vnet->ndev;
+	if (unlikely(!(ndev->flags & IFF_UP))) {
+		int ret = dev_change_flags(ndev, ndev->flags | IFF_UP, NULL);
+
+		if (unlikely(ret < 0)) {
+			rtnl_unlock();
+			pr_err("bt dev_change_flags error: ret=%d", ret);
+			return -EBUSY;
+		}
+	}
+	rtnl_unlock();
+
+	SET_STATE(vnet, BT_VIRNET_STATE_CONNECTED);
+	filp->private_data = vnet;
+	return OK;
+
+read_twice_already:
+	atomic_inc(&vnet->io_file->read_open_limit);
+	pr_err("file %s has been opened for read twice already",
+	       bt_virnet_get_cdev_name(vnet));
+	return -EBUSY;
+
+write_twice_already:
+	atomic_inc(&vnet->io_file->write_open_limit);
+	pr_err("file %s has been opened for write twice already",
+	       bt_virnet_get_cdev_name(vnet));
+	return -EBUSY;
+}
+
 static int bt_io_file_open(struct inode *node, struct file *filp)
 {
 	struct bt_virnet *vnet = NULL;
-	int ret = OK;
+
+	if (unlikely(!node) || unlikely(!filp)) {
+		pr_err("bt io file open: invalid parameter");
+		return -EINVAL;
+	}
 
 	pr_devel("bt io file open called");
 
 	list_for_each_entry(vnet, &bt_drv->devices_table->head, virnet_entry) {
-		if (bt_virnet_get_cdev(vnet) == node->i_cdev) {
-			struct net_device *ndev;
-
-			if ((filp->f_flags & O_ACCMODE) == O_RDONLY) {
-				if (unlikely(!atomic_dec_and_test(&vnet->io_file
-							 ->read_open_limit))) {
-					atomic_inc(&vnet->io_file->read_open_limit);
-					pr_err("file %s has been opened for read twice already",
-					       bt_virnet_get_cdev_name(vnet));
-					return -EBUSY;
-				}
-			} else if ((filp->f_flags & O_ACCMODE) == O_WRONLY) {
-				if (unlikely(!atomic_dec_and_test(&vnet->io_file
-							 ->write_open_limit))) {
-					atomic_inc(&vnet->io_file->write_open_limit);
-					pr_err("file %s has been opened for write twice already",
-					       bt_virnet_get_cdev_name(vnet));
-					return -EBUSY;
-				}
-			} else if ((filp->f_flags & O_ACCMODE) == O_RDWR) {
-				if (unlikely(!atomic_dec_and_test(&vnet->io_file
-							 ->read_open_limit))) {
-					atomic_inc(&vnet->io_file->read_open_limit);
-					pr_err("file %s has been opened for read twice already",
-					       bt_virnet_get_cdev_name(vnet));
-					return -EBUSY;
-				}
-
-				if (unlikely(!atomic_dec_and_test(&vnet->io_file
-							 ->write_open_limit))) {
-					atomic_inc(&vnet->io_file->write_open_limit);
-					pr_err("file %s has been opened for write twice already",
-					       bt_virnet_get_cdev_name(vnet));
-					return -EBUSY;
-				}
-			}
-
-			rtnl_lock();
-			ndev = vnet->ndev;
-			if (unlikely(!(ndev->flags & IFF_UP))) {
-				ret = dev_change_flags(ndev, ndev->flags | IFF_UP, NULL);
-				if (unlikely(ret < 0)) {
-					rtnl_unlock();
-					pr_err("bt dev_change_flags error: ret=%d", ret);
-					return -EBUSY;
-				}
-			}
-			rtnl_unlock();
-
-			SET_STATE(vnet, BT_VIRNET_STATE_CONNECTED);
-			filp->private_data = vnet;
-			return OK;
-		}
+		if (bt_virnet_get_cdev(vnet) == node->i_cdev)
+			return __bt_virnet_open(filp, vnet);
 	}
-
 	return -EIO;
 }
 
 static int bt_io_file_release(struct inode *node, struct file *filp)
 {
-	struct bt_virnet *vnet = filp->private_data;
+	struct bt_virnet *vnet = NULL;
 
+	if (unlikely(!filp) || unlikely(!filp->private_data)) {
+		pr_err("bt io file release: invalid parameter");
+		return -EINVAL;
+	}
+
+	vnet = filp->private_data;
 	pr_devel("bt io file release called");
 
 	if ((filp->f_flags & O_ACCMODE) == O_RDONLY) {
@@ -130,12 +155,17 @@ static ssize_t bt_io_file_read(struct file *filp,
 			       char __user *buffer,
 			       size_t size, loff_t *off)
 {
-	struct bt_virnet *vnet = filp->private_data;
+	struct bt_virnet *vnet = NULL;
 	ssize_t out_sz;
 	struct sk_buff *skb = NULL;
 
 	pr_devel("bt io file read called");
 
+	if (unlikely(!filp) || unlikely(!buffer) || unlikely(!filp->private_data)) {
+		pr_devel("bt io file read: invalid parameter");
+		return -EINVAL;
+	}
+	vnet = filp->private_data;
 	while (unlikely(bt_ring_is_empty(vnet->tx_ring))) {
 		if (filp->f_flags & O_NONBLOCK)
 			return -EAGAIN;
@@ -146,6 +176,10 @@ static ssize_t bt_io_file_read(struct file *filp,
 	}
 
 	skb = bt_ring_current(vnet->tx_ring);
+	if (unlikely(!skb)) {
+		pr_devel("bt io file read: invalid skb");
+		return -EINVAL;
+	}
 	out_sz = skb->len - MACADDR_LEN;
 	if (unlikely(out_sz > size)) {
 		pr_err("io file read: buffer too small: skb's len=%ld buffer's len=%ld",
@@ -174,20 +208,25 @@ static ssize_t bt_io_file_write(struct file *filp,
 				const char __user *buffer,
 				size_t size, loff_t *off)
 {
-	struct bt_virnet *vnet = filp->private_data;
+	struct bt_virnet *vnet = NULL;
 	struct sk_buff *skb = NULL;
 	int ret;
 	int len;
 	ssize_t in_sz;
 
+	if (unlikely(!filp) || unlikely(!buffer) || unlikely(!filp->private_data)) {
+		pr_err("bt io file write: invalid parameter");
+		return -EINVAL;
+	}
 	pr_devel("bt io file write called: %lu bytes", size);
+	vnet = filp->private_data;
 	in_sz = size + MACADDR_LEN;
 
-	skb = netdev_alloc_skb(bt_virnet_get_ndev(vnet), in_sz + 2);
+	skb = netdev_alloc_skb(bt_virnet_get_ndev(vnet), in_sz + NEWIP_TYPE_SIZE);
 	if (unlikely(!skb))
 		return -ENOMEM;
 
-	skb_reserve(skb, 2);
+	skb_reserve(skb, NEWIP_TYPE_SIZE);
 	skb_put(skb, in_sz);
 
 	memset(skb->data, 0, MACADDR_LEN);
@@ -212,6 +251,10 @@ static ssize_t bt_io_file_write(struct file *filp,
 
 static int bt_virnet_change_mtu(struct net_device *dev, int mtu)
 {
+	if (unlikely(!dev) || unlikely(mtu < 0) || unlikely(mtu > BT_MAX_MTU)) {
+		pr_devel("bt virnet change mtu: invalid parameter");
+		return -EINVAL;
+	}
 	pr_devel("bt virnet change mtu called");
 	dev->mtu = mtu;
 	return OK;
@@ -221,6 +264,10 @@ static int bt_set_mtu(struct net_device *dev, int mtu)
 {
 	int err = OK;
 
+	if (unlikely(mtu < 0) || unlikely(mtu > BT_MAX_MTU)) {
+		pr_devel("bt set mtu: invalid parameter");
+		return -EINVAL;
+	}
 	pr_devel("bt set_mtu called");
 	rtnl_lock();
 	err = dev_set_mtu(dev, mtu);
@@ -235,8 +282,6 @@ static int bt_set_mtu(struct net_device *dev, int mtu)
 static int bt_cmd_enable_virnet(struct bt_virnet *vnet, unsigned long arg)
 {
 	int ret;
-
-	WARN_ON(!vnet);
 
 	if (unlikely(vnet->state != BT_VIRNET_STATE_DISABLED)) {
 		pr_err("bt enable can only be set at DISABLED state");
@@ -260,7 +305,6 @@ static int bt_cmd_disable_virnet(struct bt_virnet *vnet, unsigned long arg)
 {
 	int ret;
 
-	WARN_ON(!vnet);
 	if (unlikely(vnet->state != BT_VIRNET_STATE_CONNECTED)) {
 		pr_err("bt disable can only be set at CONNECTED state");
 		return -EINVAL;
@@ -283,8 +327,6 @@ static int bt_cmd_change_mtu(struct bt_virnet *vnet, unsigned long arg)
 {
 	int mtu;
 	int ret;
-
-	WARN_ON(!vnet);
 
 	if (unlikely(get_user(mtu, (int __user *)arg))) {
 		pr_err("get_user failed");
@@ -325,9 +367,13 @@ static long bt_io_file_ioctl(struct file *filep,
 			     unsigned long arg)
 {
 	long ret;
+	struct bt_virnet *vnet = NULL;
 
-	struct bt_virnet *vnet = filep->private_data;
-
+	if (unlikely(!filep) || unlikely(!filep->private_data)) {
+		pr_err("bt io file ioctl: invalid parameter");
+		return -EINVAL;
+	}
+	vnet = filep->private_data;
 	pr_devel("bt io file ioctl called");
 	switch (cmd) {
 	case BT_IOC_CHANGE_MTU:
@@ -352,9 +398,14 @@ static long bt_io_file_ioctl(struct file *filep,
 
 static unsigned int bt_io_file_poll(struct file *filp, poll_table *wait)
 {
-	struct bt_virnet *vnet = filp->private_data;
+	struct bt_virnet *vnet = NULL;
 	unsigned int mask = 0;
 
+	if (unlikely(!filp) || unlikely(!wait) || unlikely(!filp->private_data)) {
+		pr_err("bt io file poll: invalid parameter");
+		return -EINVAL;
+	}
+	vnet = filp->private_data;
 	poll_wait(filp, &vnet->rx_queue, wait);
 	poll_wait(filp, &vnet->tx_queue, wait);
 
@@ -381,6 +432,11 @@ static int bt_mng_file_open(struct inode *node, struct file *filp)
 {
 	pr_devel("bt mng file open called");
 
+	if (unlikely(!filp)) {
+		pr_err("bt mng file open: invalid filp");
+		return -EINVAL;
+	}
+
 	if (unlikely(!atomic_dec_and_test(&bt_drv->mng_file->open_limit))) {
 		atomic_inc(&bt_drv->mng_file->open_limit);
 		pr_err("file %s has been opened already",
@@ -393,8 +449,13 @@ static int bt_mng_file_open(struct inode *node, struct file *filp)
 
 static int bt_mng_file_release(struct inode *node, struct file *filp)
 {
-	struct bt_drv *drv = filp->private_data;
+	struct bt_drv *drv = NULL;
 
+	if (unlikely(!filp) || unlikely(!filp->private_data)) {
+		pr_err("bt mng file release: invalid parameter");
+		return -EINVAL;
+	}
+	drv = filp->private_data;
 	pr_devel("bt mng file release called");
 
 	atomic_inc(&drv->mng_file->open_limit);
@@ -409,31 +470,24 @@ static int bt_cmd_create_virnet(struct bt_drv *bt_mng, unsigned long arg)
 	struct bt_uioc_args vp;
 	unsigned long size;
 
-	WARN_ON(!bt_mng);
-
 	mutex_lock(&bt_mng->bitmap_lock);
-	id = bt_get_unused_id(&bt_mng->bitmap);
+	id = bt_get_unused_id(bt_mng->bitmap);
 	pr_devel("create io_file: get unused bit: %d", id);
 
 	if (unlikely(bt_mng->devices_table->num == BT_VIRNET_MAX_NUM)) {
 		pr_err("reach the limit of max virnets");
-		mutex_unlock(&bt_mng->bitmap_lock);
-		return -EIO;
+		goto virnet_create_failed;
 	}
 	vnet = bt_virnet_create(bt_mng, id);
 	if (unlikely(!vnet)) {
 		pr_err("bt virnet create failed");
-		mutex_unlock(&bt_mng->bitmap_lock);
-		return -EIO;
+		goto virnet_create_failed;
 	}
 
-	vnet->bt_table_head = bt_mng->devices_table;
 	ret = bt_table_add_device(bt_mng->devices_table, vnet);
 	if (unlikely(ret < 0)) {
 		pr_err("bt table add device failed: ret=%d", ret);
-		bt_virnet_destroy(vnet);
-		mutex_unlock(&bt_mng->bitmap_lock);
-		return -EIO; // failed to create
+		goto add_device_failed;
 	}
 
 	bt_set_bit(&bt_mng->bitmap, id);
@@ -449,19 +503,29 @@ static int bt_cmd_create_virnet(struct bt_drv *bt_mng, unsigned long arg)
 	size = copy_to_user((void __user *)arg, &vp, sizeof(struct bt_uioc_args));
 	if (unlikely(size)) {
 		pr_err("copy_to_user failed: left size=%lu", size);
-		return -EIO;
+		goto copy_to_user_failed;
 	}
 	return OK;
+
+copy_to_user_failed:
+	mutex_lock(&bt_mng->bitmap_lock);
+	bt_clear_bit(&bt_mng->bitmap, id);
+
+add_device_failed:
+	bt_virnet_destroy(vnet);
+
+virnet_create_failed:
+	mutex_unlock(&bt_mng->bitmap_lock);
+	return -EIO;
 }
 
 static int bt_cmd_delete_virnet(struct bt_drv *bt_mng, unsigned long arg)
 {
-	int id;
+	int err;
 	struct bt_virnet *vnet = NULL;
 	struct bt_uioc_args vp;
 	unsigned long size;
-
-	WARN_ON(!bt_mng);
+	dev_t number;
 
 	size = copy_from_user(&vp, (void __user *)arg,
 			      sizeof(struct bt_uioc_args));
@@ -477,17 +541,17 @@ static int bt_cmd_delete_virnet(struct bt_drv *bt_mng, unsigned long arg)
 	}
 
 	mutex_lock(&bt_mng->bitmap_lock);
-	id = MINOR(bt_virnet_get_cdev_number(vnet));
+	err = bt_virnet_get_cdev_number(vnet, &number);
+	if (likely(!err))
+		bt_clear_bit(&bt_mng->bitmap, (u32)MINOR(number));
 	bt_table_remove_device(bt_mng->devices_table, vnet);
 	bt_virnet_destroy(vnet);
-	bt_clear_bit(&bt_mng->bitmap, id);
 	mutex_unlock(&bt_mng->bitmap_lock);
 	return OK;
 }
 
 static int bt_cmd_query_all_virnets(struct bt_drv *bt_mng, unsigned long arg)
 {
-	WARN_ON(!bt_mng);
 	if (unlikely(put_user(bt_mng->bitmap, (u32 *)arg))) {
 		pr_err("put_user failed");
 		return -EIO;
@@ -497,9 +561,7 @@ static int bt_cmd_query_all_virnets(struct bt_drv *bt_mng, unsigned long arg)
 
 static int bt_cmd_delete_all_virnets(struct bt_drv *bt_mng, unsigned long arg)
 {
-	WARN_ON(!bt_mng);
-	bt_table_delete_all(bt_mng);
-	return OK;
+	return bt_table_delete_all(bt_mng);
 }
 
 static long bt_mng_file_ioctl(struct file *filep,
@@ -507,9 +569,13 @@ static long bt_mng_file_ioctl(struct file *filep,
 			      unsigned long arg)
 {
 	int ret;
+	struct bt_drv *bt_mng = NULL;
 
-	struct bt_drv *bt_mng = filep->private_data;
-
+	if (unlikely(!filep) || unlikely(!filep->private_data)) {
+		pr_err("bt mng file ioctl: invalid parameter");
+		return -EINVAL;
+	}
+	bt_mng = filep->private_data;
 	pr_devel("bt mng file ioctl called");
 	switch (cmd) {
 	case BT_IOC_CREATE:
@@ -543,11 +609,18 @@ static netdev_tx_t bt_virnet_xmit(struct sk_buff *skb,
 {
 	int ret;
 	struct bt_virnet *vnet = NULL;
-	int len = skb->len;
+
+	if (unlikely(!skb) || unlikely(!dev)) {
+		pr_err("virnet xmit: invalid parameter");
+		return -EINVAL;
+	}
 
 	pr_alert("alert: bt virnet_xmit: called");
 	vnet = bt_table_find(bt_drv->devices_table, dev->name);
-	WARN_ON(!vnet);
+	if (unlikely(!vnet)) {
+		pr_err("virnet xmit: bt_table_find failed");
+		return -EINVAL;
+	}
 
 	ret = bt_virnet_produce_data(vnet, (void *)skb);
 
@@ -558,7 +631,7 @@ static netdev_tx_t bt_virnet_xmit(struct sk_buff *skb,
 	}
 
 	vnet->ndev->stats.tx_packets++;
-	vnet->ndev->stats.tx_bytes += len;
+	vnet->ndev->stats.tx_bytes += skb->len;
 
 	return NETDEV_TX_OK;
 }
@@ -586,8 +659,10 @@ static int bt_table_add_device(struct bt_table *tbl, struct bt_virnet *vn)
 {
 	struct bt_virnet *vnet = NULL;
 
-	WARN_ON(!tbl);
-	WARN_ON(!vn);
+	if (unlikely(!tbl)) {
+		pr_err("bt table add device: invalid parameter");
+		return -EINVAL;
+	}
 
 	vnet = bt_table_find(tbl, bt_virnet_get_ndev_name(vn));
 	if (unlikely(vnet)) {
@@ -605,8 +680,9 @@ static int bt_table_add_device(struct bt_table *tbl, struct bt_virnet *vn)
 
 static void bt_table_remove_device(struct bt_table *tbl, struct bt_virnet *vn)
 {
-	WARN_ON(!tbl);
-	WARN_ON(!vn);
+	if (unlikely(!tbl))
+		return;
+
 	mutex_lock(&tbl->tbl_lock);
 	list_del(&vn->virnet_entry);
 	--tbl->num;
@@ -617,10 +693,10 @@ static struct bt_virnet *bt_table_find(struct bt_table *tbl, const char *ifa_nam
 {
 	struct bt_virnet *vnet = NULL;
 
-	WARN_ON(!tbl);
-
-	if (unlikely(!ifa_name))
+	if (unlikely(!tbl) || unlikely(!ifa_name)) {
+		pr_err("bt table find: invalid parameter");
 		return NULL;
+	}
 
 	list_for_each_entry(vnet, &tbl->head, virnet_entry) {
 		if (!strcmp(bt_virnet_get_ndev_name(vnet), ifa_name))
@@ -631,25 +707,31 @@ static struct bt_virnet *bt_table_find(struct bt_table *tbl, const char *ifa_nam
 
 static void __bt_table_delete_all(struct bt_drv *drv)
 {
-	u32 id;
+	int err;
+	dev_t number;
 	struct bt_virnet *vnet = NULL, *tmp_vnet = NULL;
 
-	WARN_ON(!drv);
+	if (unlikely(!bt_drv->devices_table))
+		return;
+
 	list_for_each_entry_safe(vnet,
 				 tmp_vnet,
 				 &drv->devices_table->head,
 				 virnet_entry) {
-		id = MINOR(bt_virnet_get_cdev_number(vnet));
+		err = bt_virnet_get_cdev_number(vnet, &number);
+		if (likely(!err))
+			bt_clear_bit(&drv->bitmap, (u32)MINOR(number));
 		list_del(&vnet->virnet_entry);
-		bt_clear_bit(&drv->bitmap, id);
 		bt_virnet_destroy(vnet);
 	}
 	drv->devices_table->num = 0;
 }
 
-static void bt_table_delete_all(struct bt_drv *bt_drv)
+static int bt_table_delete_all(struct bt_drv *bt_drv)
 {
-	WARN_ON(!bt_drv);
+	if (unlikely(!bt_drv->devices_table))
+		return -EINVAL;
+
 	mutex_lock(&bt_drv->bitmap_lock);
 	mutex_lock(&bt_drv->devices_table->tbl_lock);
 
@@ -657,11 +739,11 @@ static void bt_table_delete_all(struct bt_drv *bt_drv)
 
 	mutex_unlock(&bt_drv->devices_table->tbl_lock);
 	mutex_unlock(&bt_drv->bitmap_lock);
+	return OK;
 }
 
 static void bt_table_destroy(struct bt_drv *bt_drv)
 {
-	WARN_ON(!bt_drv);
 	__bt_table_delete_all(bt_drv);
 	kfree(bt_drv->devices_table);
 	bt_drv->devices_table = NULL;
@@ -699,21 +781,22 @@ static struct bt_ring *bt_ring_create(void)
 
 static int bt_ring_is_empty(const struct bt_ring *ring)
 {
-	WARN_ON(!ring);
+	if (unlikely(!ring))
+		return -EINVAL;
+
 	return ring->head == ring->tail;
 }
 
 static int bt_ring_is_full(const struct bt_ring *ring)
 {
-	WARN_ON(!ring);
+	if (unlikely(!ring))
+		return -EINVAL;
+
 	return (ring->head + 1) % ring->size == ring->tail;
 }
 
 static void bt_ring_produce(struct bt_ring *ring, void *data)
 {
-	WARN_ON(!ring);
-	WARN_ON(!data);
-
 	smp_mb(); // Make sure the read and write order is correct
 	ring->data[ring->head] = data;
 	ring->head = (ring->head + 1) % ring->size;
@@ -724,14 +807,17 @@ static void *bt_ring_current(struct bt_ring *ring)
 {
 	void *data = NULL;
 
-	WARN_ON(!ring);
+	if (unlikely(!ring))
+		return data;
+
 	data = ring->data[ring->tail];
 	return data;
 }
 
 static void bt_ring_consume(struct bt_ring *ring)
 {
-	WARN_ON(!ring);
+	if (unlikely(!ring))
+		return;
 
 	smp_rmb(); // Make sure the read order is correct
 	ring->tail = (ring->tail + 1) % ring->size;
@@ -740,15 +826,15 @@ static void bt_ring_consume(struct bt_ring *ring)
 
 static void bt_ring_destroy(struct bt_ring *ring)
 {
-	WARN_ON(!ring);
+	if (unlikely(!ring))
+		return;
+
 	kfree(ring->data);
 	kfree(ring);
 }
 
 static int bt_virnet_produce_data(struct bt_virnet *dev, void *data)
 {
-	WARN_ON(!dev);
-	WARN_ON(!data);
 	if (unlikely(bt_ring_is_full(dev->tx_ring))) {
 		pr_devel("ring is full");
 		return -ENFILE;
@@ -783,7 +869,9 @@ static struct class *bt_dev_class_create(void)
 
 static void bt_dev_class_destroy(struct class *cls)
 {
-	WARN_ON(!cls);
+	if (unlikely(!cls))
+		return;
+
 	class_destroy(cls);
 }
 
@@ -794,8 +882,10 @@ static int bt_cdev_device_create(struct bt_cdev *dev,
 	struct device *device = NULL;
 	dev_t devno = MKDEV(BT_DEV_MAJOR, id);
 
-	WARN_ON(!dev);
-	WARN_ON(!cls);
+	if (unlikely(!cls)) {
+		pr_err("not a valid cls");
+		return -EINVAL;
+	}
 
 	pr_devel("bt cdev_device_create: id=%d", id);
 
@@ -812,7 +902,6 @@ static int bt_cdev_device_create(struct bt_cdev *dev,
 
 static void bt_cdev_device_destroy(struct bt_cdev *dev)
 {
-	WARN_ON(!dev);
 	device_destroy(dev->bt_class, dev->cdev->dev);
 }
 
@@ -824,20 +913,18 @@ static struct bt_cdev *bt_cdev_create(const struct file_operations *ops,
 	struct bt_cdev *dev = NULL;
 	struct cdev *chrdev = NULL;
 
-	WARN_ON(!ops);
-
 	pr_devel("bt cdev create called");
 
 	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
 	if (unlikely(!dev)) {
 		pr_err("bt cdev_create alloc failed: oom");
-		goto err1;
+		goto dev_alloc_failed;
 	}
 
 	chrdev = cdev_alloc();
 	if (unlikely(!chrdev)) {
 		pr_err("bt cdev_create: cdev_alloc() failed: oom");
-		goto err2;
+		goto cdev_alloc_failed;
 	}
 
 	cdev_init(chrdev, ops);
@@ -846,22 +933,23 @@ static struct bt_cdev *bt_cdev_create(const struct file_operations *ops,
 	ret = cdev_add(chrdev, MKDEV(BT_DEV_MAJOR, minor), 1);
 	if (unlikely(ret < 0)) {
 		pr_err("cdev add failed");
-		goto err3;
+		goto cdev_add_failed;
 	}
 
 	if (unlikely(bt_cdev_device_create(dev, bt_drv->bt_class, minor) < 0)) {
 		pr_err("bt cdev_device_create failed");
-		goto err3;
+		goto cdev_device_create_failed;
 	}
 	return dev;
 
-err3:
+cdev_device_create_failed:
 	cdev_del(chrdev);
 
-err2:
+cdev_add_failed:
+cdev_alloc_failed:
 	kfree(dev);
 
-err1:
+dev_alloc_failed:
 	return NULL;
 }
 
@@ -872,17 +960,16 @@ static void bt_cdev_delete(struct bt_cdev *bt_cdev)
 {
 	dev_t devno;
 
-	WARN_ON(!bt_cdev);
-	if (unlikely(bt_cdev)) {
+	if (likely(bt_cdev)) {
 		devno = bt_cdev->cdev->dev;
 
-		unregister_chrdev(MAJOR(devno), bt_cdev->dev_filename + 5);
+		/* BT_DEV_PATH_PREFIX + ID --> /dev/btn1 */
+		unregister_chrdev(MAJOR(devno), bt_cdev->dev_filename + strlen(BT_DEV_PATH_PREFIX));
 		bt_cdev_device_destroy(bt_cdev);
 
 		cdev_del(bt_cdev->cdev);
 	} else {
 		pr_err("bt cdev_delete: cdev is null");
-		return;
 	}
 }
 
@@ -994,6 +1081,10 @@ static struct net_device *bt_net_device_create(u32 id)
 	int err;
 	char ifa_name[IFNAMSIZ];
 
+	if (unlikely(id < 0) || unlikely(id > BT_VIRNET_MAX_NUM)) {
+		pr_err("bt net device create: invalid id");
+		return NULL;
+	}
 	snprintf(ifa_name, sizeof(ifa_name), "%s%d", BT_VIRNET_NAME_PREFIX, id);
 	ndev = alloc_netdev(0, ifa_name, NET_NAME_UNKNOWN, ether_setup);
 	if (unlikely(!ndev)) {
@@ -1022,16 +1113,16 @@ static struct net_device *bt_net_device_create(u32 id)
  */
 static void bt_net_device_destroy(struct net_device *dev)
 {
-	WARN_ON(!dev);
 	unregister_netdev(dev);
 	free_netdev(dev);
 }
 
 static struct bt_io_file *bt_get_io_file(struct bt_drv *drv, int id)
 {
-	WARN_ON(id < 1);
-	WARN_ON(id > BT_VIRNET_MAX_NUM);
-	return drv->io_files[id - 1];
+	if (id >= 1 && id <= BT_VIRNET_MAX_NUM)
+		return drv->io_files[id - 1];
+
+	return NULL;
 }
 
 /**
@@ -1043,25 +1134,25 @@ static struct bt_virnet *bt_virnet_create(struct bt_drv *bt_mng, u32 id)
 
 	if (unlikely(!vnet)) {
 		pr_err("error: bt_virnet init failed");
-		goto failure1;
+		goto out_of_memory;
 	}
 
 	vnet->tx_ring = bt_ring_create();
 	if (unlikely(!vnet->tx_ring)) {
 		pr_err("create ring failed");
-		goto failure2;
+		goto bt_ring_create_failed;
 	}
 
 	vnet->ndev = bt_net_device_create(id);
 	if (unlikely(!vnet->ndev)) {
 		pr_err("create net device failed");
-		goto failure3;
+		goto net_device_create_failed;
 	}
 
 	vnet->io_file = bt_get_io_file(bt_mng, id);
 	if (unlikely(!vnet->io_file)) {
 		pr_err("create cdev failed");
-		goto failure4;
+		goto get_io_file_failed;
 	}
 
 	init_waitqueue_head(&vnet->rx_queue);
@@ -1070,22 +1161,21 @@ static struct bt_virnet *bt_virnet_create(struct bt_drv *bt_mng, u32 id)
 	SET_STATE(vnet, BT_VIRNET_STATE_CREATED);
 	return vnet;
 
-failure4:
+get_io_file_failed:
 	bt_net_device_destroy(vnet->ndev);
 
-failure3:
+net_device_create_failed:
 	bt_ring_destroy(vnet->tx_ring);
 
-failure2:
+bt_ring_create_failed:
 	kfree(vnet);
 
-failure1:
+out_of_memory:
 	return NULL;
 }
 
 static void bt_virnet_destroy(struct bt_virnet *vnet)
 {
-	WARN_ON(!vnet);
 	bt_ring_destroy(vnet->tx_ring);
 	bt_net_device_destroy(vnet->ndev);
 
@@ -1094,16 +1184,19 @@ static void bt_virnet_destroy(struct bt_virnet *vnet)
 	kfree(vnet);
 }
 
-static void bt_module_release(void)
+static void __exit bt_module_release(void)
 {
-	bt_table_destroy(bt_drv);
-	bt_delete_io_files(bt_drv);
-	bt_delete_mng_file(bt_drv->mng_file);
-	bt_dev_class_destroy(bt_drv->bt_class);
-	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
+	if (likely(bt_drv)) {
+		bt_table_destroy(bt_drv);
+		bt_delete_io_files(bt_drv);
+		bt_delete_mng_file(bt_drv->mng_file);
+		bt_dev_class_destroy(bt_drv->bt_class);
 
-	kfree(bt_drv);
-	bt_drv = NULL;
+		kfree(bt_drv);
+		bt_drv = NULL;
+	}
+
+	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
 	remove_proc_entry("bt_info_proc", NULL);
 }
 
@@ -1112,47 +1205,48 @@ static void bt_module_release(void)
  */
 static int __init bt_module_init(void)
 {
-	int mid;
+	int mid = 0;
 	struct proc_dir_entry *entry = NULL;
 
 	pr_devel("bt module_init called");
 	bt_drv = kmalloc(sizeof(*bt_drv), GFP_KERNEL);
 	if (unlikely(!bt_drv)) {
 		pr_err("module init: alloc struct bt_drv failed: oom");
-		goto failure1;
+		goto out_of_memory;
 	}
 
 	if (unlikely(bt_cdev_region_init(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM) < 0)) {
 		pr_err("bt_cdev_region_init: failed");
-		goto failure2;
+		goto cdev_region_failed;
 	}
 
 	bt_drv->devices_table = bt_table_init();
 	if (unlikely(!bt_drv->devices_table)) {
 		pr_err("bt_table_init(): failed");
-		goto failure2;
+		goto table_init_failed;
 	}
 
 	bt_drv->bt_class = bt_dev_class_create();
-	if (IS_ERR(bt_drv->bt_class)) {
+	if (unlikely(!bt_drv->bt_class)) {
 		pr_err("class create failed");
-		goto failure3;
+		goto class_create_failed;
 	}
 
 	bt_drv->io_files = bt_create_io_files();
+	if (unlikely(!bt_drv->io_files)) {
+		pr_err("bt_create_io_files: failed");
+		goto io_files_create_failed;
+	}
 
 	mutex_init(&bt_drv->bitmap_lock);
 	bt_drv->bitmap = 0;
 
 	mutex_lock(&bt_drv->bitmap_lock);
-	mid = bt_get_unused_id(&bt_drv->bitmap);
-	pr_devel("create mng_file: get unused bit: %d", mid);
-
 	bt_drv->mng_file = bt_create_mng_file(mid);
 	if (unlikely(!bt_drv->mng_file)) {
 		pr_err("bt_ctrl_cdev_init failed");
 		mutex_unlock(&bt_drv->bitmap_lock);
-		goto failure4;
+		goto mng_file_create_failed;
 	}
 	bt_set_bit(&bt_drv->bitmap, mid);
 	mutex_unlock(&bt_drv->bitmap_lock);
@@ -1160,24 +1254,30 @@ static int __init bt_module_init(void)
 	entry = proc_create_data("bt_info_proc", 0, NULL, &bt_proc_fops, NULL);
 	if (unlikely(!entry)) {
 		pr_err("create proc data failed");
-		goto failure5;
+		goto proc_create_failed;
 	}
 
 	return OK;
 
-failure5:
+proc_create_failed:
 	bt_delete_mng_file(bt_drv->mng_file);
 
-failure4:
+mng_file_create_failed:
+	bt_delete_io_files(bt_drv);
+
+io_files_create_failed:
 	bt_dev_class_destroy(bt_drv->bt_class);
 
-failure3:
+class_create_failed:
 	bt_table_destroy(bt_drv);
 
-failure2:
+table_init_failed:
+	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
+
+cdev_region_failed:
 	kfree(bt_drv);
 
-failure1:
+out_of_memory:
 	return -1;
 }
 
