@@ -1,5 +1,6 @@
 (1) The directories below are licensed under GPL-2.0-or-later.
     ./newip/
     ./xpm/
+    ./qos_auth/
 
 As for the specific use of the licenses,  please refer to the relevant description in the documents.
