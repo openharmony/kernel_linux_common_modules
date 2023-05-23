@@ -2,7 +2,12 @@
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
  *
- * Definitions for the NewIP Hooks Register module.
+ * Description: Definitions for the NewIP Hooks
+ * Register module.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-20
  */
 #ifndef _NIP_HOOKS_REGISTER_H
 #define _NIP_HOOKS_REGISTER_H

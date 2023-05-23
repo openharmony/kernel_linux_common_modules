@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: get af ninet.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <stdint.h>
 
 #define AF_NINET_PATH        ("/sys/module/newip/parameters/af_ninet")
 #define AF_NINET_LENTH       (5)
@@ -29,7 +34,10 @@ void _get_af_ninet(void)
 		return;
 	}
 
-	fclose(fn);
+	if (fclose(fn) == EOF) {
+		printf("fclose failed\n");
+		return;
+	}
 	g_af_ninet = atoi(tmp);
 }
 

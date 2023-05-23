@@ -225,12 +225,12 @@ static inline const char *bt_virnet_get_state_rep(const struct bt_virnet *vn)
 	return bt_virnet_state_rep[vn->state];
 }
 
-static inline int bt_get_total_device(const struct bt_drv *bt_drv)
+static inline int bt_get_total_device(const struct bt_drv *drv)
 {
-	if (unlikely(!bt_drv->devices_table))
+	if (unlikely(!drv->devices_table))
 		return -EINVAL;
 
-	return bt_drv->devices_table->num;
+	return drv->devices_table->num;
 }
 
 static inline int bt_virnet_get_ring_packets(const struct bt_virnet *vn)
@@ -251,9 +251,9 @@ static inline int bt_virnet_get_ring_packets(const struct bt_virnet *vn)
 static struct bt_table *bt_table_init(void);
 static int bt_table_add_device(struct bt_table *tbl, struct bt_virnet *vn);
 static void bt_table_remove_device(struct bt_table *tbl, struct bt_virnet *vn);
-static int bt_table_delete_all(struct bt_drv *bt_drv);
+static int bt_table_delete_all(struct bt_drv *drv);
 static struct bt_virnet *bt_table_find(struct bt_table *tbl, const char *ifa_name);
-static void bt_table_destroy(struct bt_drv *bt_drv);
+static void bt_table_destroy(struct bt_drv *drv);
 static void bt_delete_io_files(struct bt_drv *bt_mng);
 static struct bt_io_file **bt_create_io_files(void);
 

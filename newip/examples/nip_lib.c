@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Provide NewIP universal library.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-07-18
  */
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <stdint.h>
 #include <linux/if.h>  /* struct ifreq depend */
 
 #include "nip_uapi.h"

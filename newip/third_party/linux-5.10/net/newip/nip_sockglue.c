@@ -18,17 +18,17 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": [%s:%d] " fmt, __func__, __LINE__
 
+#include <net/sock.h>
+#include <net/nip.h>
+#include <net/nip_udp.h>
+#include <net/route.h>
+#include <net/nip_fib.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/skbuff.h>
 #include <linux/nip.h>
 #include <linux/inetdevice.h>
 #include <linux/netdevice.h>
-#include <net/sock.h>
-#include <net/nip.h>
-#include <net/nip_udp.h>
-#include <net/route.h>
-#include <net/nip_fib.h>
 #include "tcp_nip_parameter.h"
 
 #define NIP_OPTNAME_MAX 255
@@ -44,8 +44,9 @@ static bool nip_setsockopt_needs_rtnl(int optname)
 	switch (optname) {
 	case IP_MSFILTER:
 		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 static bool nip_getsockopt_needs_rtnl(int optname)
@@ -53,8 +54,9 @@ static bool nip_getsockopt_needs_rtnl(int optname)
 	switch (optname) {
 	case IP_MSFILTER:
 		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 static int do_nip_setsockopt(struct sock *sk, int level, int optname,

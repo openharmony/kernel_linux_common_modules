@@ -23,6 +23,18 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": [%s:%d] " fmt, __func__, __LINE__
 
+#include <net/sock.h>
+#include <net/nip.h>
+#include <net/nip_udp.h>
+#include <net/protocol.h>
+#include <net/nndisc.h>
+#include <net/nip_route.h>
+#include <net/addrconf.h>
+#include <net/nip_fib.h>
+#include <net/netlink.h>
+#include <net/flow.h>
+#include <net/inet_common.h>
+#include <net/nip_addrconf.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/types.h>
@@ -35,19 +47,7 @@
 #include <linux/nip.h>
 #include <linux/nip_icmp.h>
 #include <linux/jhash.h>
-#include <net/sock.h>
-#include <net/nip.h>
-#include <net/nip_udp.h>
-#include <net/protocol.h>
-#include <net/nndisc.h>
-#include <net/nip_route.h>
-#include <net/addrconf.h>
-#include <net/nip_fib.h>
-#include <net/netlink.h>
 #include <linux/rtnetlink.h>
-#include <net/flow.h>
-#include <net/inet_common.h>
-#include <net/nip_addrconf.h>
 #include <linux/newip_route.h>
 #include <linux/netfilter.h>
 #include "nip_hdr.h"
