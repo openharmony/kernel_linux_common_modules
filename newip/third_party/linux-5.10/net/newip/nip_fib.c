@@ -287,7 +287,7 @@ out_fib_table_hash:
 	return -ENOMEM;
 }
 
-static void nip_fib_net_exit(struct net *net)
+static void __net_exit nip_fib_net_exit(struct net *net)
 {
 	nip_fib_free_table(net->newip.nip_fib_main_tbl);
 	nip_fib_free_table(net->newip.nip_fib_local_tbl);
@@ -323,6 +323,10 @@ out_kmem_cache_create:
 	goto out;
 }
 
+/* When adding the __exit tag to a function, it is important to
+ * ensure that the function is only called during the exit phase
+ * to avoid unnecessary warnings and errors.
+ */
 void nip_fib_gc_cleanup(void)
 {
 	unregister_pernet_subsys(&nip_fib_net_ops);

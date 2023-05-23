@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Demo example of configuring NewIP address.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -8,7 +14,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <stdint.h>
 
 #include "nip_uapi.h"
 #include "nip_lib.h"

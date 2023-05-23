@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: This file implements the function
+ * of encapsulating the NewIP protocol header.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-07-18
  */
 #include "nip_hdr.h"
 

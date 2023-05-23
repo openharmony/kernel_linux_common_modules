@@ -9,11 +9,11 @@
  *
  * Fixes:
  *		Alan Cox	:	verify_area() calls
- *		Alan Cox	: 	stopped close while in use off icmp
+ *		Alan Cox	:	stopped close while in use off icmp
  *					messages. Not a fix but a botch that
  *					for udp at least is 'valid'.
  *		Alan Cox	:	Fixed icmp handling properly
- *		Alan Cox	: 	Correct error for oversized datagrams
+ *		Alan Cox	:	Correct error for oversized datagrams
  *		Alan Cox	:	Tidied select() semantics.
  *		Alan Cox	:	udp_err() fixed properly, also now
  *					select and read wake correctly on errors
@@ -25,7 +25,7 @@
  *		Alan Cox	:	Switched to new sk_buff handlers. No more backlog!
  *		Alan Cox	:	Using generic datagram code. Even smaller and the PEEK
  *					bug no longer crashes it.
- *		Fred Van Kempen	: 	Net2e support for sk->broadcast.
+ *		Fred Van Kempen	:	Net2e support for sk->broadcast.
  *		Alan Cox	:	Uses skb_free_datagram
  *		Alan Cox	:	Added get/set sockopt support.
  *		Alan Cox	:	Broadcasting without option set returns EACCES.
@@ -37,7 +37,7 @@
  *		Alan Cox	:	Smarter af_inet used properly.
  *		Alan Cox	:	Use new kernel side addressing.
  *		Alan Cox	:	Incorrect return on truncated datagram receive.
- *	Arnt Gulbrandsen 	:	New udp_send and stuff
+ *	Arnt Gulbrandsen	:	New udp_send and stuff
  *		Alan Cox	:	Cache last socket
  *		Alan Cox	:	Route cache
  *		Jon Peatfield	:	Minor efficiency fix to sendto().

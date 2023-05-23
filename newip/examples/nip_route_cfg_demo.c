@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Demo example of configuring NewIP route.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -34,11 +40,11 @@ int nip_route_add(int ifindex, const unsigned char *dst_addr, uint8_t dst_addr_l
 	memset(&rt, 0, sizeof(rt));
 	rt.rtmsg_ifindex = ifindex;
 	rt.rtmsg_flags = RTF_UP;
-	rt.rtmsg_dst.bitlen = dst_addr_len * 8;
+	rt.rtmsg_dst.bitlen = dst_addr_len * BITS_PER_BYTE;
 	memcpy(rt.rtmsg_dst.nip_addr_field8, dst_addr, dst_addr_len);
 
 	if (gateway_addr) {
-		rt.rtmsg_gateway.bitlen = gateway_addr_len * 8;
+		rt.rtmsg_gateway.bitlen = gateway_addr_len * BITS_PER_BYTE;
 		memcpy(rt.rtmsg_gateway.nip_addr_field8, gateway_addr, gateway_addr_len);
 		rt.rtmsg_flags |= RTF_GATEWAY;
 	}
@@ -71,7 +77,7 @@ int main(int argc, char **argv)
 			printf("client cfg route, dst-addr=0x%02x%02x\n",
 			       server_addr[INDEX_0], server_addr[INDEX_1]);
 			dst_addr = server_addr;
-			dst_addr_len = 2;
+			dst_addr_len = INDEX_2;
 		} else {
 			printf("invalid route cfg input\n");
 			return -1;

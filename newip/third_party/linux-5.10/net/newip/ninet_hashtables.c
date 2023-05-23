@@ -41,6 +41,8 @@
 #include <net/secure_seq.h>
 #include "tcp_nip_parameter.h"
 
+#define TCP_SEQ_SCALE_SHIFT 6
+
 static siphash_key_t net_secret __read_mostly;
 
 static __always_inline void net_secret_init(void)
@@ -60,7 +62,7 @@ static u32 seq_scale(u32 seq)
 	 * overlaps less than one time per MSL (2 minutes).
 	 * Choosing a clock of 64 ns period is OK. (period of 274 s)
 	 */
-	return seq + (ktime_get_real_ns() >> 6);
+	return seq + (ktime_get_real_ns() >> TCP_SEQ_SCALE_SHIFT);
 }
 #endif
 

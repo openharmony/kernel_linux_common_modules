@@ -26,6 +26,7 @@
 #include <linux/module.h>
 #include "tcp_nip_parameter.h"
 
+#define TCP_ORPHAN_RETRIES 8
 /**
  *  tcp_nip_orphan_retries() - Returns maximal number of retries on an orphaned socket
  *  @sk:    Pointer to the current socket.
@@ -44,7 +45,7 @@ static int tcp_nip_orphan_retries(struct sock *sk, bool alive)
 	 * RTO of 200msec.
 	 */
 	if (retries == 0 && alive)
-		retries = 8;
+		retries = TCP_ORPHAN_RETRIES;
 	return retries;
 }
 

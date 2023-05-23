@@ -727,26 +727,26 @@ static void __bt_table_delete_all(struct bt_drv *drv)
 	drv->devices_table->num = 0;
 }
 
-static int bt_table_delete_all(struct bt_drv *bt_drv)
+static int bt_table_delete_all(struct bt_drv *drv)
 {
-	if (unlikely(!bt_drv->devices_table))
+	if (unlikely(!drv->devices_table))
 		return -EINVAL;
 
-	mutex_lock(&bt_drv->bitmap_lock);
-	mutex_lock(&bt_drv->devices_table->tbl_lock);
+	mutex_lock(&drv->bitmap_lock);
+	mutex_lock(&drv->devices_table->tbl_lock);
 
-	__bt_table_delete_all(bt_drv);
+	__bt_table_delete_all(drv);
 
-	mutex_unlock(&bt_drv->devices_table->tbl_lock);
-	mutex_unlock(&bt_drv->bitmap_lock);
+	mutex_unlock(&drv->devices_table->tbl_lock);
+	mutex_unlock(&drv->bitmap_lock);
 	return OK;
 }
 
-static void bt_table_destroy(struct bt_drv *bt_drv)
+static void bt_table_destroy(struct bt_drv *drv)
 {
-	__bt_table_delete_all(bt_drv);
-	kfree(bt_drv->devices_table);
-	bt_drv->devices_table = NULL;
+	__bt_table_delete_all(drv);
+	kfree(drv->devices_table);
+	drv->devices_table = NULL;
 }
 
 static struct bt_ring *__bt_ring_create(int size)
@@ -875,19 +875,25 @@ static void bt_dev_class_destroy(struct class *cls)
 	class_destroy(cls);
 }
 
+static void bt_cdev_device_destroy(struct bt_cdev *dev)
+{
+	device_destroy(dev->bt_class, dev->cdev->dev);
+}
+
 static int bt_cdev_device_create(struct bt_cdev *dev,
 				 struct class *cls,
 				 u32 id)
 {
 	struct device *device = NULL;
 	dev_t devno = MKDEV(BT_DEV_MAJOR, id);
+	int ret;
 
 	if (unlikely(!cls)) {
 		pr_err("not a valid cls");
 		return -EINVAL;
 	}
 
-	pr_devel("bt cdev_device_create: id=%d", id);
+	pr_devel("bt cdev device create: id=%d", id);
 
 	dev->bt_class = cls;
 
@@ -896,13 +902,14 @@ static int bt_cdev_device_create(struct bt_cdev *dev,
 		pr_err("create device failed");
 		return -EIO;
 	}
-	snprintf(dev->dev_filename, sizeof(dev->dev_filename), "%s%u", BT_DEV_PATH_PREFIX, id);
+	ret = snprintf(dev->dev_filename, sizeof(dev->dev_filename),
+		       "%s%u", BT_DEV_PATH_PREFIX, id);
+	if (ret < 0) {
+		pr_devel("bt cdev device create: snprintf failed\n");
+		bt_cdev_device_destroy(dev);
+		return -EFAULT;
+	}
 	return OK;
-}
-
-static void bt_cdev_device_destroy(struct bt_cdev *dev)
-{
-	device_destroy(dev->bt_class, dev->cdev->dev);
 }
 
 static struct bt_cdev *bt_cdev_create(const struct file_operations *ops,
@@ -943,9 +950,9 @@ static struct bt_cdev *bt_cdev_create(const struct file_operations *ops,
 	return dev;
 
 cdev_device_create_failed:
+cdev_add_failed:
 	cdev_del(chrdev);
 
-cdev_add_failed:
 cdev_alloc_failed:
 	kfree(dev);
 
@@ -1085,7 +1092,11 @@ static struct net_device *bt_net_device_create(u32 id)
 		pr_err("bt net device create: invalid id");
 		return NULL;
 	}
-	snprintf(ifa_name, sizeof(ifa_name), "%s%d", BT_VIRNET_NAME_PREFIX, id);
+	err = snprintf(ifa_name, sizeof(ifa_name), "%s%d", BT_VIRNET_NAME_PREFIX, id);
+	if (err < 0) {
+		pr_err("bt net device create: snprintf failed");
+		return NULL;
+	}
 	ndev = alloc_netdev(0, ifa_name, NET_NAME_UNKNOWN, ether_setup);
 	if (unlikely(!ndev)) {
 		pr_err("alloc_netdev failed");

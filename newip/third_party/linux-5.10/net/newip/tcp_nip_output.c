@@ -64,6 +64,7 @@
 #define OPTION_MD5              BIT(2)
 #define OPTION_WSCALE           BIT(3)
 #define OPTION_FAST_OPEN_COOKIE BIT(8)
+#define TCP_NIP_SND_NUM_MAX     (~0U)
 
 /* Store the options contained in TCP when sending TCP packets */
 struct tcp_nip_out_options {
@@ -385,7 +386,7 @@ static __u16 tcp_nip_advertise_mss(struct sock *sk)
 		int nip_mss;
 		unsigned int metric = dst_metric_advmss(dst);
 
-		if (metric < mss) {
+		if (metric < (unsigned int)mss) {
 			mss = metric;
 			tp->advmss = mss;
 		}
@@ -1079,10 +1080,17 @@ static bool tcp_nip_write_xmit(struct sock *sk, unsigned int mss_now, int nonagl
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct tcp_nip_common *ntp = &tcp_nip_sk(sk)->common;
 	struct sk_buff *skb;
-	u32 snd_num = get_nip_tcp_snd_win_enable() ? (ntp->nip_ssthresh / mss_now) : 0xFFFFFFFF;
+	u32 snd_num;
 	u32 last_nip_ssthresh = ntp->nip_ssthresh;
 	static const char * const str[] = {"can`t send pkt because no window",
 					   "have window to send pkt"};
+
+	if (!mss_now) {
+		nip_dbg("invalid parameter, mss_now=%u", mss_now);
+		return false;
+	}
+	snd_num = get_nip_tcp_snd_win_enable() ? (ntp->nip_ssthresh / mss_now) :
+			  TCP_NIP_SND_NUM_MAX;
 
 	tcp_nip_keepalive_enable(sk);
 	ntp->idle_ka_probes_out = 0;
