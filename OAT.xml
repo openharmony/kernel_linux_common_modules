@@ -59,8 +59,10 @@ Note:If the text contains special characters, please escape them according to th
 			<policy name="newipPolicy" desc="New IP protocol stack">
 				<policyitem type="compatibility" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="xpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="compatibility" name="GPL" path="qos_auth/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="xpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="license" name="GPL" path="qos_auth/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 			</policy>
 		</policylist>
 		<filefilterlist>
@@ -78,6 +80,7 @@ Note:If the text contains special characters, please escape them according to th
 			<filefilter name="binaryFileTypePolicyFilter" desc="binary file filter">
 				<filteritem type="filepath" name="newip/figures/.*"/>
 				<filteritem type="filepath" name="xpm/figures/.*"/>
+				<filteritem type="filepath" name="qos_auth/figures/.*"/>
 			</filefilter>
 		</filefilterlist>
 	</oatconfig>
