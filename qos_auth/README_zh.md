@@ -68,4 +68,4 @@ CONFIG_UCLAMP_TASK_GROUP=y
 
 [kernel_linux_config](https://gitee.com/openharmony/kernel_linux_config)
 
-[device_board_hihope](https://gitee.com/openharmony/device_board_hihope)https://gitee.com/openharmony/device_board_hihope)
+[device_board_hihope](https://gitee.com/openharmony/device_board_hihope)
