@@ -17,12 +17,18 @@
 #include <trace/hooks/inet.h>
 #include "tcp_nip_parameter.h"
 
+/* call the newip hook function in sk_ehashfn function (net\ipv4\inet_hashtables.c):
+ * if trace_vendor_ninet_ehashfn_enabled() then call trace_vendor_ninet_ehashfn function.
+ */
 void vendor_ninet_ehashfn(void *data, const struct sock *sk, u32 *ret)
 {
 	*ret = ninet_ehashfn(sock_net(sk), &sk->sk_nip_rcv_saddr,
 			     sk->sk_num, &sk->sk_nip_daddr, sk->sk_dport);
 }
 
+/* call the newip hook function in inet_gifconf function (net\ipv4\devinet.c):
+ * call the newip trace_vendor_ninet_gifconf function after the IPv4 process.
+ */
 void vendor_ninet_gifconf(void *data, struct net_device *dev,
 			  char __user *buf, int len, int size, int *ret)
 {
