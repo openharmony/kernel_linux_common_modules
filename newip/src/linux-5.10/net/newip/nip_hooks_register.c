@@ -2,7 +2,12 @@
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
  *
- * Definitions for the NewIP Hooks Register module.
+ * Description: Definitions for the NewIP Hooks
+ * Register module.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-20
  */
 #ifdef CONFIG_NEWIP_HOOKS
 #define pr_fmt(fmt) KBUILD_MODNAME ": [%s:%d] " fmt, __func__, __LINE__
@@ -19,7 +24,7 @@ void vendor_ninet_ehashfn(void *data, const struct sock *sk, u32 *ret)
 }
 
 void vendor_ninet_gifconf(void *data, struct net_device *dev,
-			 char __user *buf, int len, int size, int *ret)
+			  char __user *buf, int len, int size, int *ret)
 {
 	if (*ret >= 0) {
 		int done = ninet_gifconf(dev, buf + *ret, len - *ret, size);

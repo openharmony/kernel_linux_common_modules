@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Definitions for the structure
+ * associated with NewIP.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #ifndef _NIP_UAPI_H
 #define _NIP_UAPI_H

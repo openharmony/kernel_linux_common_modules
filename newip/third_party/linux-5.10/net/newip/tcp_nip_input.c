@@ -48,7 +48,7 @@
  *		Andi Kleen:		Process packets with PSH set in the
  *					fast path.
  *		J Hadi Salim:		ECN support
- *	 	Andrei Gurtov,
+ *		Andrei Gurtov,
  *		Pasi Sarolahti,
  *		Panu Kuhlberg:		Experimental audit of TCP (re)transmission
  *					engine. Lots of bugs are found.
@@ -506,6 +506,11 @@ static void tcp_nip_data_queue(struct sock *sk, struct sk_buff *skb)
 	u32 cur_win = tcp_receive_window(tp);
 	u32 seq_max = tp->rcv_nxt + cur_win;
 
+	if (mss <= 0) {
+		nip_dbg("invalid parameter, mss=%u", mss);
+		__kfree_skb(skb);
+		return;
+	}
 	/* Newip Urg_ptr is disabled. Urg_ptr is used to carry the number of discarded packets */
 	tp->snd_up = (TCP_SKB_CB(skb)->seq - tcp_sk(sk)->rcv_nxt) / mss;
 	tp->snd_up = tp->snd_up > PKT_DISCARD_MAX ? 0 : tp->snd_up;
@@ -1044,7 +1049,7 @@ void tcp_nip_openreq_init_rwin(struct request_sock *req,
 	req->rsk_window_clamp = window_clamp ? : dst_metric(dst, RTAX_WINDOW);
 
 	/* limit the window selection if the user enforce a smaller rx buffer */
-	if (sk_listener->sk_userlocks & SOCK_RCVBUF_LOCK &&
+	if ((sk_listener->sk_userlocks & SOCK_RCVBUF_LOCK) &&
 	    (req->rsk_window_clamp > full_space || req->rsk_window_clamp == 0))
 		req->rsk_window_clamp = full_space;
 

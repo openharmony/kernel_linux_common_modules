@@ -434,6 +434,7 @@ out:
 	return err;
 
 out_err_release:
+	rcu_read_unlock();
 	dst_release(dst);
 	dst = NULL;
 	sk->sk_err_soft = -err;
