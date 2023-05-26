@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Definitions for the structure
+ * associated with NewIP route.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #ifndef _NEWIP_ROUTE_H
 #define _NEWIP_ROUTE_H

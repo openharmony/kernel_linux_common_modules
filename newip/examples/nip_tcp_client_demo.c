@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Demo example of NewIP tcp client.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #include <stdio.h>
 #include <unistd.h>
@@ -8,9 +14,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <errno.h>
 #include <sys/socket.h>
-#include <sys/ioctl.h>
 
 #include "nip_uapi.h"
 #include "nip_lib.h"
@@ -24,10 +28,14 @@ int _send(int cfd, int pkt_num)
 {
 	char buf[BUFLEN] = {0};
 	struct timeval sys_time;
+	int ret;
 
 	gettimeofday(&sys_time, NULL);
-	sprintf(buf, "%ld %6ld NIP_TCP # %6d", sys_time.tv_sec, sys_time.tv_usec, pkt_num);
-
+	ret = sprintf(buf, "%ld %6ld NIP_TCP # %6d", sys_time.tv_sec, sys_time.tv_usec, pkt_num);
+	if (ret < 0) {
+		printf("sprintf failed\n");
+		return -1;
+	}
 	if (send(cfd, buf, PKTLEN, 0) < 0) {
 		perror("sendto");
 		return -1;
@@ -45,7 +53,7 @@ int _recv(int cfd, int pkt_num, int *success)
 
 	FD_ZERO(&readfds);
 	FD_SET(cfd, &readfds);
-	tv.tv_sec = 2;
+	tv.tv_sec = TIMEOUT_SEC;
 	tv.tv_usec = 0;
 	if (select(cfd + 1, &readfds, NULL, NULL, &tv) < 0) {
 		perror("select");

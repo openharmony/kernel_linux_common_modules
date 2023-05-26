@@ -13,8 +13,8 @@
 #include <asm/byteorder.h>
 #include <linux/libc-compat.h>
 #include <linux/types.h>
-#include "nip_addr.h"
 #include <linux/if.h>
+#include "nip_addr.h"
 
 struct nip_ifreq {
 	struct nip_addr ifrn_addr;

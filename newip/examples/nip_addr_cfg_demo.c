@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Demo example of configuring NewIP address.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-07-18
  */
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -8,7 +14,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <stdint.h>
 
 #include "nip_uapi.h"
 #include "nip_lib.h"
@@ -29,7 +34,7 @@ int nip_add_addr(int ifindex, const unsigned char *addr, unsigned char addr_len)
 		return -1;
 
 	memset(&ifrn, 0, sizeof(ifrn));
-	ifrn.ifrn_addr.bitlen = addr_len * 8; // Byte length is converted to bit length
+	ifrn.ifrn_addr.bitlen = addr_len * BITS_PER_BYTE; // Byte length is converted to bit length
 	memcpy(ifrn.ifrn_addr.nip_addr_field8, addr, addr_len);
 	ifrn.ifrn_ifindex = ifindex;
 

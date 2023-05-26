@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Provides some functionalities for
+ * checksum calculation in the NewIP protocol.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-07-18
  */
 #include "nip_hdr.h"
 #include "nip_checksum.h"

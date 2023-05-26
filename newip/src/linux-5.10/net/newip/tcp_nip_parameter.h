@@ -7,7 +7,11 @@
  * operating system. NewIP INET is implemented using the  BSD Socket
  * interface as the means of communication with the user level.
  *
- * Definitions for the NewIP parameter module.
+ * Description: Definitions for the NewIP parameter module.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-07-25
  */
 #ifndef _TCP_NIP_PARAMETER_H
 #define _TCP_NIP_PARAMETER_H

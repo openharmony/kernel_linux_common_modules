@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: check NewIP enable.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <stdint.h>
 
 #define NIP_DISABLE_PATH        ("/sys/module/newip/parameters/disable")
 #define NIP_DISABLE_LENTH       (5)
@@ -30,11 +35,14 @@ void _check_nip_enable(void)
 		return;
 	}
 
-	fclose(fn);
+	if (fclose(fn) == EOF) {
+		printf("fclose failed\n");
+		return;
+	}
 	g_nip_enable = atoi(tmp) ? 0 : 1;
 }
 
-int check_nip_enable(void)
+bool check_nip_enable(void)
 {
 	if (g_nip_enable == NIP_ENABLE_INVALID) {
 		_check_nip_enable();

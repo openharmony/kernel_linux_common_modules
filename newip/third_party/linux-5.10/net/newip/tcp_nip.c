@@ -41,7 +41,7 @@
  *					escape still
  *		Alan Cox	:	Fixed another acking RST frame bug.
  *					Should stop LAN workplace lockups.
- *		Alan Cox	: 	Some tidyups using the new skb list
+ *		Alan Cox	:	Some tidyups using the new skb list
  *					facilities
  *		Alan Cox	:	sk->keepopen now seems to work
  *		Alan Cox	:	Pulls options out correctly on accepts
@@ -195,7 +195,7 @@
  *					tcp_do_sendmsg to avoid burstiness.
  *		Eric Schenk	:	Fix fast close down bug with
  *					shutdown() followed by close().
- *		Andi Kleen 	:	Make poll agree with SIGIO
+ *		Andi Kleen	:	Make poll agree with SIGIO
  *	Salvatore Sanfilippo	:	Support SO_LINGER with linger == 1 and
  *					lingertime == 0 (RFC 793 ABORT Call)
  *	Hirokazu Takahashi	:	Use copy_from_user() instead of
@@ -215,7 +215,7 @@
  *					the TCP layer, missed a check for an
  *					ACK bit.
  *		Andi Kleen :		Implemented fast path mtu discovery.
- *	     				Fixed many serious bugs in the
+ *						Fixed many serious bugs in the
  *					request_sock handling and moved
  *					most of it into the af independent code.
  *					Added tail drop and some other bugfixes.
@@ -321,7 +321,7 @@
  *		Andi Kleen:		Process packets with PSH set in the
  *					fast path.
  *		J Hadi Salim:		ECN support
- *	 	Andrei Gurtov,
+ *		Andrei Gurtov,
  *		Pasi Sarolahti,
  *		Panu Kuhlberg:		Experimental audit of TCP (re)transmission
  *					engine. Lots of bugs are found.
@@ -401,6 +401,12 @@
 #include <linux/nip.h>
 #include "nip_checksum.h"
 #include "tcp_nip_parameter.h"
+
+#define TCP_HEADER_LENGTH(th) ((th)->doff << 2)
+#define TCP_ACK_NUM_MULTIPLIER      20
+#define TCP_WINDOW_RAISE_THRESHOLD  2
+#define TCP_BACKLOG_HEADROOM        (64 * 1024)
+#define BYTES_PER_TCP_HEADER        4
 
 static const struct inet_connection_sock_af_ops newip_specific;
 
@@ -740,7 +746,7 @@ static void tcp_nip_send_reset(struct sock *sk, struct sk_buff *skb)
 		seq = ntohl(th->ack_seq);
 	else
 		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
-			  (th->doff << 2);
+			  TCP_HEADER_LENGTH(th);
 
 	tcp_nip_actual_send_reset(sk, skb, seq, ack_seq, 0, 1, priority);
 }
@@ -1202,7 +1208,7 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
 	struct tcp_sock *tp = tcp_sk(sk);
 	u32 new_size_goal, size_goal;
 
-	if (!large_allowed)
+	if (!large_allowed || !mss_now)
 		return mss_now;
 
 	/* Note : tcp_tso_autosize() will eventually split this later */
@@ -1382,7 +1388,8 @@ void tcp_nip_cleanup_rbuf(struct sock *sk, int copied)
 	if (inet_csk_ack_scheduled(sk)) {
 		const struct inet_connection_sock *icsk = inet_csk(sk);
 
-		if (tp->rcv_nxt - tp->rcv_wup > (get_ack_num() * 20 * icsk->icsk_ack.rcv_mss) ||
+		if (tp->rcv_nxt - tp->rcv_wup > (get_ack_num() *
+			TCP_ACK_NUM_MULTIPLIER * icsk->icsk_ack.rcv_mss) ||
 		    /* If this read emptied read buffer, we send ACK, if
 		     * connection is not bidirectional, user drained
 		     * receive buffer and there was a small segment
@@ -1406,7 +1413,7 @@ void tcp_nip_cleanup_rbuf(struct sock *sk, int copied)
 		__u32 rcv_window_now = tcp_receive_window(tp);
 
 		/* Optimize, __nip_tcp_select_window() is not cheap. */
-		if (2 * rcv_window_now <= tp->window_clamp) {
+		if (TCP_WINDOW_RAISE_THRESHOLD * rcv_window_now <= tp->window_clamp) {
 			__u32 new_window = __nip_tcp_select_window(sk);
 
 			/* Send ACK now, if this read freed lots of space
@@ -1414,7 +1421,7 @@ void tcp_nip_cleanup_rbuf(struct sock *sk, int copied)
 			 * We can advertise it now, if it is not less than current one.
 			 * "Lots" means "at least twice" here.
 			 */
-			if (new_window && new_window >= 2 * rcv_window_now)
+			if (new_window && new_window >= TCP_WINDOW_RAISE_THRESHOLD * rcv_window_now)
 				time_to_ack = true;
 		}
 	}
@@ -1675,7 +1682,7 @@ static bool tcp_nip_add_backlog(struct sock *sk, struct sk_buff *skb)
 	 * to reduce memory overhead, so add a little headroom here.
 	 * Few sockets backlog are possibly concurrently non empty.
 	 */
-	limit += 64 * 1024;
+	limit += TCP_BACKLOG_HEADROOM;
 
 	/* In case all data was pulled from skb frags (in __pskb_pull_tail()),
 	 * we can fix skb->truesize to its real value to avoid future drops.
@@ -1829,7 +1836,7 @@ static void tcp_nip_early_demux(struct sk_buff *skb)
 		return;
 
 	th = tcp_hdr(skb);
-	if (th->doff < sizeof(struct tcphdr) / 4)
+	if (th->doff < sizeof(struct tcphdr) / BYTES_PER_TCP_HEADER)
 		return;
 
 	sk = __ninet_lookup_established(dev_net(skb->dev), &tcp_hashinfo,
@@ -2060,6 +2067,10 @@ out_nip_tcp_protocol:
 	goto out;
 }
 
+/* When adding the __exit tag to a function, it is important to
+ * ensure that the function is only called during the exit phase
+ * to avoid unnecessary warnings and errors.
+ */
 void tcp_nip_exit(void)
 {
 	ninet_unregister_protosw(&tcp_nip_protosw);

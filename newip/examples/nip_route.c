@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Demo example of configuring NewIP route.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-09-06
  */
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <unistd.h>
 #include <linux/route.h>
 

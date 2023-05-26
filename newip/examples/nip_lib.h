@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (c) 2022 Huawei Device Co., Ltd.
+ *
+ * Description: Provide NewIP universal library.
+ *
+ * Author: Yang Yanjun <yangyanjun@huawei.com>
+ *
+ * Data: 2022-07-18
  */
 #ifndef _NIP_LIB_H
 #define _NIP_LIB_H
@@ -27,6 +33,8 @@
 #define SELECT_TIME     600
 #define TCP_SERVER_PORT 5556    /* TCP Server Port */
 #define UDP_SERVER_PORT 9090    /* UDP Server Port */
+#define TIMEOUT_SEC     2
+#define BITS_PER_BYTE   8
 
 #define ARRAY_LEN     255
 
