@@ -417,11 +417,6 @@ static int ninet_addr_del(struct net *net, int ifindex, u32 ifa_flags,
 
 int nip_addrconf_ifaddr_check(struct net *net, void __user *arg, struct nip_ifreq *ireq)
 {
-	if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
-		nip_dbg("not admin can`t cfg");
-		return -EPERM;
-	}
-
 	if (copy_from_user(ireq, arg, sizeof(struct nip_ifreq))) {
 		nip_dbg("fail to copy cfg data");
 		return -EFAULT;
