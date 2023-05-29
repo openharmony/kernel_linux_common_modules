@@ -57,6 +57,10 @@
 #endif
 #include "tcp_nip_parameter.h"
 
+#define NINET_IOCTL_FLAG_LEN	8
+#define NINET_IOCTL_HEAD_LEN    12
+#define NINET_IOCTL_FLAG_VALUE  {0xea, 0xdd, 0xea, 0xdd, 0xea, 0xdd, 0xea, 0xdd}
+
 MODULE_DESCRIPTION("NewIP protocol stack");
 
 /* The inetsw_nip table contains everything that ninet_create needs to
@@ -507,7 +511,66 @@ int ninet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	}
 }
 EXPORT_SYMBOL_GPL(ninet_compat_ioctl);
+
+static int compat_select_ninet_ioctl(struct socket *sock, unsigned int cmd,
+				     unsigned long arg, int arglen)
+{
+	switch (cmd) {
+	case SIOCADDRT:
+	case SIOCDELRT:
+		if (sizeof(struct nip_rtmsg) != arglen) {
+			void __user *argp = compat_ptr(arg);
+			struct sock *sk = sock->sk;
+
+			return ninet_compat_routing_ioctl(sk, cmd, argp);
+		}
+		return ninet_ioctl(sock, cmd, arg);
+	default:
+		return ninet_ioctl(sock, cmd, arg);
+	}
+}
 #endif /* CONFIG_COMPAT */
+
+static int __ninet_ioctl_cmd(struct socket *sock, unsigned int cmd,
+			     void __user *iov_base, __kernel_size_t iov_len)
+{
+	unsigned long arg = (unsigned long)(iov_base + NINET_IOCTL_HEAD_LEN);
+#ifdef CONFIG_COMPAT
+	int arglen = iov_len - NINET_IOCTL_HEAD_LEN;
+
+	return compat_select_ninet_ioctl(sock, cmd, arg, arglen);
+#else
+	return ninet_ioctl(sock, cmd, arg);
+#endif
+}
+
+int ninet_ioctl_cmd(struct socket *sock, const struct iovec *iov)
+{
+	char ioctl_flag[NINET_IOCTL_FLAG_LEN] = NINET_IOCTL_FLAG_VALUE;
+	char ioctl_head[NINET_IOCTL_HEAD_LEN];
+	int i;
+	unsigned int cmd;
+
+	if (!iov || !iov->iov_base || !sock ||
+	    iov->iov_len < NINET_IOCTL_HEAD_LEN) {
+		nip_dbg("invalid parameter");
+		return -NIP_IOCTL_FLAG_INVALID;
+	}
+
+	if (copy_from_user(ioctl_head, (void __user *)iov->iov_base, NINET_IOCTL_HEAD_LEN)) {
+		nip_dbg("fail to copy ioctl head");
+		return -NIP_IOCTL_FLAG_INVALID;
+	}
+
+	for (i = 0; i < NINET_IOCTL_FLAG_LEN; i++) {
+		if (ioctl_head[i] != ioctl_flag[i]) {
+			nip_dbg("not ninet ioctl cmd");
+			return -NIP_IOCTL_FLAG_INVALID;
+		}
+	}
+	cmd = *(unsigned int *)(ioctl_head + NINET_IOCTL_FLAG_LEN);
+	return __ninet_ioctl_cmd(sock, cmd, iov->iov_base, iov->iov_len);
+}
 
 /* register new	IP socket */
 const struct proto_ops ninet_dgram_ops = {

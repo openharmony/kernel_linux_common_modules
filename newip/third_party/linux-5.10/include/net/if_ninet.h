@@ -12,6 +12,8 @@
 
 #include <linux/nip.h>
 
+#define NIP_IOCTL_FLAG_INVALID  35
+
 enum {
 	NINET_IFADDR_STATE_NEW,
 	NINET_IFADDR_STATE_DEAD,
@@ -62,5 +64,6 @@ struct ninet_dev {
 };
 
 int ninet_gifconf(struct net_device *dev, char __user *buf, int len, int size);
+int ninet_ioctl_cmd(struct socket *sock, const struct iovec *iov);
 
 #endif
