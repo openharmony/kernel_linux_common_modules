@@ -26,6 +26,12 @@ const struct nip_addr nip_broadcast_addr_arp = {
 	.nip_addr_field8[1] = 0x04,
 };
 
+static const struct nip_addr nip_local_addr = {
+	.bitlen = NIP_ADDR_BIT_LEN_16,
+	.nip_addr_field8[0] = 0xFF, /* 0xFF00 addr, big-endian */
+	.nip_addr_field8[1] = 0x00,
+};
+
 enum addr_check_ret {
 	NOT_CURRENT_ADDR = -1,
 	CURRENT_ADDR_VALID = 0,
@@ -120,6 +126,18 @@ static inline int is_8byte_addr_flag(unsigned char first_byte)
 static inline int is_public_addr_flag(unsigned char first_byte)
 {
 	return first_byte == ADDR_FIRST_FF ? NIP_TRUE : NIP_FALSE;
+}
+
+int is_nip_local_addr(const struct nip_addr *ad)
+{
+	int result = 0;
+
+	if (ad->bitlen == NIP_ADDR_BIT_LEN_16) {
+		if (ad->nip_addr_field16[0] == nip_local_addr.nip_addr_field16[0] &&
+		    ad->nip_addr_field16[1] == nip_local_addr.nip_addr_field16[1])
+			result = 1;
+	}
+	return result;
 }
 
 /* Short address range:

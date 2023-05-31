@@ -115,6 +115,7 @@ int nip_addr_any(const struct nip_addr *ad);
 int get_nip_addr_len(const struct nip_addr *addr);
 unsigned char *build_nip_addr(const struct nip_addr *addr, unsigned char *buf);
 unsigned char *decode_nip_addr(unsigned char *buf, struct nip_addr *addr);
+int is_nip_local_addr(const struct nip_addr *addr);
 
 #endif /* _UAPI_NEWIP_ADDR_H */
 

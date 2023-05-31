@@ -398,7 +398,7 @@ int nip_udp_output(struct sock *sk, struct msghdr *msg, size_t len)
 	struct flow_nip fln;
 	u_short sport, dport;
 	struct dst_entry *dst;
-	int err = 0;
+	int err;
 	struct inet_sock *inet;
 
 	if (!sin)
@@ -414,6 +414,16 @@ int nip_udp_output(struct sock *sk, struct msghdr *msg, size_t len)
 	if (nip_addr_invalid(&sin->sin_addr)) {
 		nip_dbg("sin_addr false");
 		return -EFAULT;
+	}
+	if (is_nip_local_addr(&sin->sin_addr)) {
+		err = ninet_ioctl_cmd(sk->sk_socket, msg->msg_iter.iov);
+		if (!err) {
+			nip_dbg("ninet_ioctl_cmd succeed");
+			return err;
+		} else if (err != -NIP_IOCTL_FLAG_INVALID) {
+			nip_dbg("ninet_ioctl_cmd failed");
+			return err;
+		}
 	}
 
 	inet = inet_sk(sk);
