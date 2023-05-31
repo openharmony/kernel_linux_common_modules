@@ -656,11 +656,6 @@ int nip_route_ioctl(struct net *net, unsigned int cmd, struct nip_rtmsg *rtmsg)
 	struct nip_fib_config cfg;
 	int err;
 
-	if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
-		nip_dbg("not admin can`t cfg");
-		return -EPERM;
-	}
-
 	rtmsg_to_fibni_config(net, rtmsg, &cfg);
 	if (nip_addr_invalid(&cfg.fc_dst)) {
 		nip_dbg("nip daddr invalid, bitlen=%u", cfg.fc_dst.bitlen);
