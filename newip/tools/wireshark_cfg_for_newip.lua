@@ -2,9 +2,12 @@ require "bit32"
 --[[
 SPDX-License-Identifier: GPL-2.0-or-later
 Copyright (c) 2022 Huawei Device Co., Ltd.
-Function  : wireshark lua configure for NewIP protocol stack
-Author    : yangyanjun
-Edit Date : 2022/5/27
+
+Description: wireshark lua configure for NewIP protocol stack
+
+Author: Yang Yanjun <yangyanjun@huawei.com>
+
+Data: 2022-05-27
 --]]
 
 do -- lua begin
