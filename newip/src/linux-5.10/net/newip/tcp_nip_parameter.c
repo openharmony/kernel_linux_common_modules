@@ -34,7 +34,7 @@ module_param_named(af_ninet, g_af_ninet, int, 0444);
 /*                            Rto timeout timer period (HZ/n)                                */
 /*********************************************************************************************/
 /* RTT RTO in the small-delay scenario */
-int g_nip_rto = 5;
+int g_nip_rto = 20;
 module_param_named(nip_rto, g_nip_rto, int, 0644);
 
 int get_nip_rto(void)
