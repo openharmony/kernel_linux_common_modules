@@ -2,6 +2,12 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (c) 2022 Huawei Device Co., Ltd.
 #
+# Description: Create a symbolic link for NewIP in Linux 5.10
+#
+# Author: Yang Yanjun <yangyanjun@huawei.com>
+#
+# Data: 2022-07-25
+#
 
 set -e
 
