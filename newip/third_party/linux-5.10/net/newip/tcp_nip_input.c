@@ -607,7 +607,7 @@ static void tcp_nip_new_space(struct sock *sk)
 	sk->sk_write_space(sk);
 }
 
-static void tcp_nip_check_space(struct sock *sk)
+void tcp_nip_check_space(struct sock *sk)
 {
 	/* Invoke memory barrier (annotated prior to checkpatch requirements) */
 	smp_mb();
@@ -1596,7 +1596,7 @@ void tcp_nip_rcv_established(struct sock *sk, struct sk_buff *skb,
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	tcp_mstamp_refresh(tp);
-	if (unlikely(!sk->sk_rx_dst))
+	if (unlikely(!rcu_access_pointer(sk->sk_rx_dst)))
 		inet_csk(sk)->icsk_af_ops->sk_rx_dst_set(sk, skb);
 
 	if (!tcp_nip_validate_incoming(sk, skb, th, 1))
@@ -1643,7 +1643,7 @@ static void tcp_nip_fixup_rcvbuf(struct sock *sk)
 #define TCP_NIP_SND_BUF_SIZE 30720
 void tcp_nip_init_buffer_space(struct sock *sk)
 {
-	int tcp_app_win = sock_net(sk)->ipv4.sysctl_tcp_app_win;
+	int tcp_app_win = READ_ONCE(sock_net(sk)->ipv4.sysctl_tcp_app_win);
 	struct tcp_sock *tp = tcp_sk(sk);
 	int maxwin;
 
