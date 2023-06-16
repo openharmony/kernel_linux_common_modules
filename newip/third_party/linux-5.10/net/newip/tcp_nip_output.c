@@ -133,11 +133,13 @@ static void tcp_nip_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
 	unsigned int prior_packets = tp->packets_out;
 
 	tcp_advance_send_head(sk, skb);
-	tp->snd_nxt = TCP_SKB_CB(skb)->end_seq;
+	WRITE_ONCE(tp->snd_nxt, TCP_SKB_CB(skb)->end_seq);
 	tp->packets_out += tcp_skb_pcount(skb);
 	if (!prior_packets || icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)
 		tcp_nip_rearm_rto(sk);
+
+	tcp_nip_check_space(sk);
 }
 
 /* check probe0 timer */
@@ -1347,7 +1349,7 @@ void tcp_nip_send_probe0(struct sock *sk)
 	/* Err: 0 succeeded, -1 failed */
 	icsk->icsk_probes_out++; /* Number of probes +1 */
 	if (err <= 0) {
-		if (icsk->icsk_backoff < net->ipv4.sysctl_tcp_retries2)
+		if (icsk->icsk_backoff < READ_ONCE(net->ipv4.sysctl_tcp_retries2))
 			icsk->icsk_backoff++;
 		when = tcp_probe0_when(sk, TCP_RTO_MAX);
 		nip_dbg("probe0 %s, probes_out=%u, probe0_base=%lu, icsk_backoff=%u, when=%lu",

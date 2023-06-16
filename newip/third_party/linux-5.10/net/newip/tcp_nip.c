@@ -826,7 +826,7 @@ void ninet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
 	struct dst_entry *dst = skb_dst(skb);
 
 	if (dst && dst_hold_safe(dst)) {
-		sk->sk_rx_dst = dst;
+		rcu_assign_pointer(sk->sk_rx_dst, dst);
 		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
 	}
 }
@@ -1165,7 +1165,7 @@ static int tcp_nip_init_sock(struct sock *sk)
 	tp->snd_cwnd_clamp = ~0;
 	tp->mss_cache = TCP_MSS_DEFAULT;
 
-	tp->reordering = sock_net(sk)->ipv4.sysctl_tcp_reordering;
+	tp->reordering = READ_ONCE(sock_net(sk)->ipv4.sysctl_tcp_reordering);
 	tp->tsoffset = 0;
 	sk->sk_state = TCP_CLOSE;
 	sk->sk_write_space = sk_stream_write_space;
@@ -1624,14 +1624,16 @@ static int tcp_nip_do_rcv(struct sock *sk, struct sk_buff *skb)
 	nip_dbg("received newip tcp skb, sk_state=%d", sk->sk_state);
 
 	if (sk->sk_state == TCP_ESTABLISHED) {
-		struct dst_entry *dst = sk->sk_rx_dst;
+		struct dst_entry *dst;
 
+		dst = rcu_dereference_protected(sk->sk_rx_dst,
+						lockdep_sock_is_held(sk));
 		if (dst) {
 			/* Triggered when processing newly received skb after deleting routes */
 			if (inet_sk(sk)->rx_dst_ifindex != skb->skb_iif ||
 			    !dst->ops->check(dst, 0)) {
+				RCU_INIT_POINTER(sk->sk_rx_dst, NULL);
 				dst_release(dst);
-				sk->sk_rx_dst = NULL;
 			}
 		}
 		tcp_nip_rcv_established(sk, skb, tcp_hdr(skb), skb->len);
@@ -1846,7 +1848,7 @@ static void tcp_nip_early_demux(struct sk_buff *skb)
 		skb->sk = sk;
 		skb->destructor = sock_edemux;
 		if (sk_fullsock(sk)) {
-			struct dst_entry *dst = READ_ONCE(sk->sk_rx_dst);
+			struct dst_entry *dst = rcu_dereference(sk->sk_rx_dst);
 
 			if (dst)
 				dst = dst_check(dst, 0);
@@ -1961,8 +1963,7 @@ int tcp_nip_disconnect(struct sock *sk, int flags)
 	sk->sk_send_head = NULL;
 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
 	__sk_dst_reset(sk);
-	dst_release(sk->sk_rx_dst);
-	sk->sk_rx_dst = NULL;
+	dst_release(xchg((__force struct dst_entry **)&sk->sk_rx_dst, NULL));
 	tp->segs_in = 0;
 	tp->segs_out = 0;
 	tp->bytes_acked = 0;

@@ -126,7 +126,7 @@ static int tcp_nip_write_timeout(struct sock *sk)
 		retry_until = icsk->icsk_syn_retries ? : net->ipv4.sysctl_tcp_syn_retries;
 		syn_set = true;
 	} else {
-		retry_until = net->ipv4.sysctl_tcp_retries2;
+		retry_until = READ_ONCE(net->ipv4.sysctl_tcp_retries2);
 		if (sock_flag(sk, SOCK_DEAD)) {
 			const bool alive = icsk->icsk_rto < TCP_RTO_MAX;
 
@@ -178,7 +178,7 @@ void tcp_nip_retransmit_timer(struct sock *sk)
 		return;
 	}
 
-	if (icsk->icsk_backoff < net->ipv4.sysctl_tcp_retries2)
+	if (icsk->icsk_backoff < READ_ONCE(net->ipv4.sysctl_tcp_retries2))
 		icsk->icsk_backoff++;
 	icsk->icsk_retransmits++;
 

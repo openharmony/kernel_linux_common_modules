@@ -116,6 +116,7 @@ void tcp_nip_init_xmit_timers(struct sock *sk);
 void tcp_nip_clear_xmit_timers(struct sock *sk);
 void tcp_nip_delack_timer_handler(struct sock *sk);
 void tcp_nip_write_timer_handler(struct sock *sk);
+void tcp_nip_check_space(struct sock *sk);
 
 static inline struct sk_buff *tcp_nip_send_head(const struct sock *sk)
 {
