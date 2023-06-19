@@ -145,10 +145,9 @@ static void tcp_nip_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
 /* check probe0 timer */
 static void tcp_nip_check_probe_timer(struct sock *sk)
 {
-	unsigned long when;
-
 	if (!tcp_sk(sk)->packets_out && !inet_csk(sk)->icsk_pending) {
-		when = tcp_probe0_base(sk);
+		unsigned long when = tcp_probe0_base(sk);
+
 		nip_dbg("start probe0 timer, when=%lu, RTO MAX=%u", when, TCP_RTO_MAX);
 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0, when, TCP_RTO_MAX);
 	} else if (inet_csk(sk)->icsk_pending != ICSK_TIME_PROBE0) {

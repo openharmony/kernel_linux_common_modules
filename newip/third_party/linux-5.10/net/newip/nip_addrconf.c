@@ -557,7 +557,7 @@ static int nip_addrconf_notify(struct notifier_block *this, unsigned long event,
 
 		/* allocate new idev */
 		idev = nip_add_dev(dev);
-		if (IS_ERR(idev))
+		if (IS_ERR_OR_NULL(idev))
 			break;
 
 		/* device is still not ready */
