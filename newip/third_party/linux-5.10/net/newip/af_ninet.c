@@ -546,7 +546,7 @@ static int __ninet_ioctl_cmd(struct socket *sock, unsigned int cmd,
 
 int ninet_ioctl_cmd(struct socket *sock, const struct iovec *iov)
 {
-	char ioctl_flag[NINET_IOCTL_FLAG_LEN] = NINET_IOCTL_FLAG_VALUE;
+	const char ioctl_flag[NINET_IOCTL_FLAG_LEN] = NINET_IOCTL_FLAG_VALUE;
 	char ioctl_head[NINET_IOCTL_HEAD_LEN];
 	int i;
 	unsigned int cmd;

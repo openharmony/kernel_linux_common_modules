@@ -108,10 +108,31 @@ struct nip_fib_node *nip_fib_locate(struct hlist_head *nip_tb_head,
 	return NULL;
 }
 
+static bool is_nip_route_exist(const struct hlist_head *h, const struct nip_rt_info *rt,
+			       u8 table_id)
+{
+	struct nip_fib_node *fib_node;
+
+	hlist_for_each_entry(fib_node, h, fib_hlist) {
+		if (table_id  == NIP_RT_TABLE_MAIN) {
+			if (nip_addr_eq(&fib_node->nip_route_info->rt_dst,
+					&rt->rt_dst))
+				return true;
+		} else if (table_id == NIP_RT_TABLE_LOCAL) {
+			if (nip_addr_and_ifindex_eq
+				(&fib_node->nip_route_info->rt_dst, &rt->rt_dst,
+				fib_node->nip_route_info->rt_idev->dev->ifindex,
+				rt->rt_idev->dev->ifindex))
+				return true;
+		}
+	}
+	return false;
+}
+
 /* nip_tb_lock must be taken to avoid racing */
 int nip_fib_add(struct nip_fib_table *table, struct nip_rt_info *rt)
 {
-	struct nip_fib_node *fib_node, *new_node;
+	struct nip_fib_node *new_node;
 	int err = 0;
 	struct hlist_head *h;
 	unsigned int hash;
@@ -121,22 +142,16 @@ int nip_fib_add(struct nip_fib_table *table, struct nip_rt_info *rt)
 	hash = ninet_route_hash(&rt->rt_dst);
 	h = &table->nip_tb_head[hash];
 
-	hlist_for_each_entry(fib_node, h, fib_hlist) {
-		if (table->nip_tb_id == NIP_RT_TABLE_MAIN) {
-			if (nip_addr_eq(&fib_node->nip_route_info->rt_dst,
-					&rt->rt_dst)) {
-				err = -EEXIST;
-				goto fail;
-			}
-		} else if (table->nip_tb_id == NIP_RT_TABLE_LOCAL) {
-			if (nip_addr_and_ifindex_eq
-				(&fib_node->nip_route_info->rt_dst, &rt->rt_dst,
-				fib_node->nip_route_info->rt_idev->dev->ifindex,
-				rt->rt_idev->dev->ifindex)) {
-				err = -EEXIST;
-				goto fail;
-			}
-		}
+	nip_addr_to_str(&rt->rt_dst, dst, NIP_ADDR_BIT_LEN_MAX);
+	nip_addr_to_str(&rt->gateway, gateway, NIP_ADDR_BIT_LEN_MAX);
+	nip_dbg("%s ifindex=%u (addr=%s, gateway=%s, rt_idev->refcnt=%u)",
+		rt->rt_idev->dev->name, rt->rt_idev->dev->ifindex,
+		dst, gateway, refcount_read(&rt->rt_idev->refcnt));
+
+	if (is_nip_route_exist(h, rt, table->nip_tb_id)) {
+		err = -EEXIST;
+		nip_dbg("File exists");
+		goto fail;
 	}
 
 	new_node = nip_node_alloc();
@@ -149,11 +164,6 @@ int nip_fib_add(struct nip_fib_table *table, struct nip_rt_info *rt)
 	rcu_assign_pointer(rt->rt_node, new_node);
 	atomic_inc(&rt->rt_ref);
 	hlist_add_tail_rcu(&new_node->fib_hlist, h);
-	nip_addr_to_str(&rt->rt_dst, dst, NIP_ADDR_BIT_LEN_MAX);
-	nip_addr_to_str(&rt->gateway, gateway, NIP_ADDR_BIT_LEN_MAX);
-	nip_dbg("%s ifindex=%u (addr=%s, gateway=%s, rt_idev->refcnt=%u)",
-		rt->rt_idev->dev->name, rt->rt_idev->dev->ifindex,
-		dst, gateway, refcount_read(&rt->rt_idev->refcnt));
 
 out:
 	return err;

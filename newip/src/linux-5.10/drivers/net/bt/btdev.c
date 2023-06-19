@@ -707,7 +707,6 @@ static struct bt_virnet *bt_table_find(struct bt_table *tbl, const char *ifa_nam
 
 static void __bt_table_delete_all(struct bt_drv *drv)
 {
-	int err;
 	dev_t number;
 	struct bt_virnet *vnet = NULL, *tmp_vnet = NULL;
 
@@ -718,7 +717,8 @@ static void __bt_table_delete_all(struct bt_drv *drv)
 				 tmp_vnet,
 				 &drv->devices_table->head,
 				 virnet_entry) {
-		err = bt_virnet_get_cdev_number(vnet, &number);
+		int err = bt_virnet_get_cdev_number(vnet, &number);
+
 		if (likely(!err))
 			bt_clear_bit(&drv->bitmap, (u32)MINOR(number));
 		list_del(&vnet->virnet_entry);
