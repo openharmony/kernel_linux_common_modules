@@ -39,11 +39,14 @@
 #include <linux/seq_file.h>
 #include <linux/ktime.h>
 #include <linux/rtnetlink.h>
+#include <linux/libfdt_env.h>
 
 /* must include btdev_user.h first before any macro definition */
 #include "btdev_user.h"
 
 #define OK 0
+#define TRUE 1
+#define FALSE 0
 #define DELAY_100_MS 100
 #define MACADDR_LEN (2 * ETH_ALEN)
 
@@ -56,10 +59,6 @@
 #define NEWIP_TYPE_SIZE 2 /* newip type eadd */
 #define BT_MAX_MTU 65535
 #define UNKNOWN_NAME "unknown"
-/**
- * for debug
- */
-#define DEBUG
 
 /**
  * ring buffer
@@ -122,7 +121,7 @@ struct bt_virnet {
 	struct list_head virnet_entry;
 	enum bt_virnet_state state;
 	struct semaphore sem;
-	wait_queue_head_t rx_queue, tx_queue;
+	wait_queue_head_t rx_queue;
 };
 
 /**
@@ -140,7 +139,7 @@ struct bt_drv {
 /**
  * state to string
  */
-static const char *bt_virnet_state_rep[BT_VIRNET_STAET_NUM] = {
+static const char *g_bt_virnet_state_rep[BT_VIRNET_STAET_NUM] = {
 	"CREATED",
 	"CONNECTED",
 	"DISCONNECTED",
@@ -222,7 +221,7 @@ static inline const char *bt_virnet_get_ndev_name(const struct bt_virnet *vn)
 
 static inline const char *bt_virnet_get_state_rep(const struct bt_virnet *vn)
 {
-	return bt_virnet_state_rep[vn->state];
+	return g_bt_virnet_state_rep[vn->state];
 }
 
 static inline int bt_get_total_device(const struct bt_drv *drv)
@@ -239,7 +238,7 @@ static inline int bt_virnet_get_ring_packets(const struct bt_virnet *vn)
 
 	if (unlikely(!vn->tx_ring) || unlikely(!vn->tx_ring->head) ||
 	    unlikely(!vn->tx_ring->tail))
-		return -EINVAL;
+		return 0;
 
 	packets = vn->tx_ring->head - vn->tx_ring->tail;
 	if (unlikely(packets < 0))
