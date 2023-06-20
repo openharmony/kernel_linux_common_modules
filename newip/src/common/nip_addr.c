@@ -128,13 +128,13 @@ static inline int is_public_addr_flag(unsigned char first_byte)
 	return first_byte == ADDR_FIRST_FF ? NIP_TRUE : NIP_FALSE;
 }
 
-int is_nip_local_addr(const struct nip_addr *ad)
+int is_nip_local_addr(const struct nip_addr *addr)
 {
 	int result = 0;
 
-	if (ad->bitlen == NIP_ADDR_BIT_LEN_16) {
-		if (ad->nip_addr_field16[0] == nip_local_addr.nip_addr_field16[0] &&
-		    ad->nip_addr_field16[1] == nip_local_addr.nip_addr_field16[1])
+	if (addr->bitlen == NIP_ADDR_BIT_LEN_16) {
+		if (addr->nip_addr_field16[0] == nip_local_addr.nip_addr_field16[0] &&
+		    addr->nip_addr_field16[1] == nip_local_addr.nip_addr_field16[1])
 			result = 1;
 	}
 	return result;
@@ -353,13 +353,13 @@ int nip_addr_public(const struct nip_addr *addr)
 }
 
 /* judge whether the nip_addr is equal to 0xFF09 */
-int nip_addr_any(const struct nip_addr *ad)
+int nip_addr_any(const struct nip_addr *addr)
 {
 	int result = 0;
 
-	if (ad->bitlen == NIP_ADDR_BIT_LEN_16) {
-		if (ad->nip_addr_field16[0] == nip_any_addr.nip_addr_field16[0] &&
-		    ad->nip_addr_field16[1] == nip_any_addr.nip_addr_field16[1])
+	if (addr->bitlen == NIP_ADDR_BIT_LEN_16) {
+		if (addr->nip_addr_field16[0] == nip_any_addr.nip_addr_field16[0] &&
+		    addr->nip_addr_field16[1] == nip_any_addr.nip_addr_field16[1])
 			result = 1;
 	}
 	return result;
