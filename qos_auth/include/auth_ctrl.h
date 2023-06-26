@@ -16,6 +16,11 @@
 #define SUPER_UID SYSTEM_UID
 #define super_uid(uid) (uid == ROOT_UID || uid == SYSTEM_UID)
 
+enum ioctl_abi_format_auth{
+	AUTH_IOCTL_ABI_ARM32,
+	AUTH_IOCTL_ABI_AARCH64,
+};
+
 enum auth_ctrl_cmdid {
 	BASIC_AUTH_CTRL = 1,
 	AUTH_CTRL_MAX_NR
@@ -106,7 +111,7 @@ enum auth_status {
 };
 
 struct auth_struct;
-long auth_ctrl_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+long auth_ctrl_ioctl(int abi, struct file *file, unsigned int cmd, unsigned long arg);
 void get_auth_struct(struct auth_struct *auth);
 void put_auth_struct(struct auth_struct *auth);
 struct auth_struct *get_authority(struct task_struct *p);
