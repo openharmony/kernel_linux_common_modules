@@ -11,6 +11,11 @@
 #include <linux/sched.h>
 #include <linux/fs.h>
 
+enum ioctl_abi_format_qos{
+	QOS_IOCTL_ABI_ARM32,
+	QOS_IOCTL_ABI_AARCH64,
+};
+
 enum qos_ctrl_cmdid {
 	QOS_CTRL = 1,
 	QOS_POLICY,
@@ -113,7 +118,7 @@ void init_task_qos(struct task_struct *p);
 void sched_exit_qos_list(struct task_struct *p);
 void remove_qos_tasks(struct auth_struct *auth);
 
-long do_qos_ctrl_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+long do_qos_ctrl_ioctl(int abi, struct file *file, unsigned int cmd, unsigned long arg);
 
 #endif /* _QOS_CTRL_H */
 

@@ -27,9 +27,9 @@
 #include "qos_ctrl.h"
 #endif
 
-typedef long (*auth_ctrl_func)(struct file *file, void __user *arg);
+typedef long (*auth_ctrl_func)(int abi, void __user *arg);
 
-static long ctrl_auth_basic_operation(struct file *file, void __user *uarg);
+static long ctrl_auth_basic_operation(int abi, void __user *uarg);
 
 static auth_ctrl_func g_func_array[AUTH_CTRL_MAX_NR] = {
 	NULL, /* reserved */
@@ -386,14 +386,33 @@ static long do_auth_manipulate(struct auth_ctrl_data *data)
 	return ret;
 }
 
-static long ctrl_auth_basic_operation(struct file *file, void __user *uarg)
+static long ctrl_auth_basic_operation(int abi, void __user *uarg)
 {
 	struct auth_ctrl_data auth_data;
-	long ret;
+	long ret = -1;
 
-	if (copy_from_user(&auth_data, uarg, sizeof(struct auth_ctrl_data))) {
-		pr_err("[AUTH_CTRL] BASIC_AUTH_CTRL_OPERATION copy data failed\n");
-		return -ARG_INVALID;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
+	switch (abi) {
+	case AUTH_IOCTL_ABI_ARM32:
+		ret = copy_from_user(&auth_data,
+				(void __user *)compat_ptr((compat_uptr_t)uarg),
+				sizeof(struct auth_ctrl_data));
+		break;
+	case AUTH_IOCTL_ABI_AARCH64:
+		ret = copy_from_user(&auth_data, uarg, sizeof(struct auth_ctrl_data));
+		break;
+	default:
+		pr_err("[AUTH_CTRL] abi format error\n");
+		break;
+	}
+
+#pragma GCC diagnostic pop
+
+	if (ret) {
+		pr_err("[AUTH_RTG] %s copy user data failed\n", __func__);
+		return ret;
 	}
 
 	ret = do_auth_manipulate(&auth_data);
@@ -402,15 +421,34 @@ static long ctrl_auth_basic_operation(struct file *file, void __user *uarg)
 		return ret;
 	}
 
-	if (copy_to_user(uarg, &auth_data, sizeof(struct auth_ctrl_data))) {
-		pr_err("[AUTH_CTRL] BASIC_AUTH_CTRL_OPERATION send data failed\n");
-		return -ARG_INVALID;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
+	switch (abi) {
+	case AUTH_IOCTL_ABI_ARM32:
+		ret = copy_to_user((void __user *)compat_ptr((compat_uptr_t)uarg),
+				&auth_data,
+				sizeof(struct auth_ctrl_data));
+		break;
+	case AUTH_IOCTL_ABI_AARCH64:
+		ret = copy_to_user(uarg, &auth_data, sizeof(struct auth_ctrl_data));
+		break;
+	default:
+		pr_err("[AUTH_CTRL] abi format error\n");
+		break;
+	}
+
+#pragma GCC diagnostic pop
+
+	if (ret) {
+		pr_err("[AUTH_RTG] %s copy user data failed\n", __func__);
+		return ret;
 	}
 
 	return 0;
 }
 
-long auth_ctrl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+long do_auth_ctrl_ioctl(int abi, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	void __user *uarg = (void __user *)arg;
 	unsigned int func_cmd = _IOC_NR(cmd);
@@ -433,7 +471,7 @@ long auth_ctrl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 	if (g_func_array[func_cmd])
-		return (*g_func_array[func_cmd])(file, uarg);
+		return (*g_func_array[func_cmd])(abi, uarg);
 
 	return -EINVAL;
 }
@@ -539,10 +577,25 @@ struct auth_struct *get_authority(struct task_struct *p)
 	return auth;
 }
 
+long proc_auth_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return do_auth_ctrl_ioctl(AUTH_IOCTL_ABI_AARCH64, file, cmd, arg);
+}
+
+#ifdef CONFIG_COMPAT
+long proc_auth_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return do_auth_ctrl_ioctl(AUTH_IOCTL_ABI_ARM32, file, cmd,
+				(unsigned long)(compat_ptr((compat_uptr_t)arg)));
+}
+#endif
+
 static const struct file_operations auth_ctrl_fops = {
 	.owner		= THIS_MODULE,
-	.unlocked_ioctl	= auth_ctrl_ioctl,
-	.compat_ioctl	= auth_ctrl_ioctl,
+	.unlocked_ioctl = proc_auth_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = proc_auth_compat_ioctl,
+#endif
 };
 
 static struct miscdevice auth_ctrl_device = {

@@ -18,10 +18,10 @@
 #include "auth_ctrl.h"
 #include "qos_ctrl.h"
 
-typedef long (*qos_ctrl_func)(struct file *file, void __user *uarg);
+typedef long (*qos_ctrl_func)(int abi, void __user *uarg);
 
-static long ctrl_qos_operation(struct file *file, void __user *uarg);
-static long ctrl_qos_policy(struct file *file, void __user *uarg);
+static long ctrl_qos_operation(int abi, void __user *uarg);
+static long ctrl_qos_policy(int abi, void __user *uarg);
 
 static qos_ctrl_func g_func_array[QOS_CTRL_MAX_NR] = {
 	NULL, /* reserved */
@@ -452,13 +452,33 @@ static long do_qos_manipulate(struct qos_ctrl_data *data)
 	return ret;
 }
 
-static long ctrl_qos_operation(struct file *file, void __user *uarg)
+static long ctrl_qos_operation(int abi, void __user *uarg)
 {
 	struct qos_ctrl_data qos_data;
+	int ret = -1;
 
-	if (copy_from_user(&qos_data, uarg, sizeof(struct qos_ctrl_data))) {
-		pr_err("[QOS_CTRL] CMD_ID_QOS_APPLY copy data failed\n");
-		return -ARG_INVALID;
+#pragma GCC diagnostic push
+#pragma GCC diagonstic ignored "-Wpointer-to-int-cast"
+
+	switch (abi) {
+	case QOS_IOCTL_ABI_ARM32:
+		ret = copy_from_user(&qos_data,
+				(void __user *)compat_ptr((compat_uptr_t)uarg),
+				sizeof(struct qos_ctrl_data));
+		break;
+	case QOS_IOCTL_ABI_AARCH64:
+		ret = copy_from_user(&qos_data, uarg, sizeof(struct qos_ctrl_data));
+		break;
+	default:
+		pr_err("[QOS_CTRL] abi format error\n");
+		break;
+	}
+
+#pragma GCC diagnostic pop
+
+	if (ret) {
+		pr_err("[QOS_CTRL] %s copy user data failed\n", __func__);
+		return ret;
 	}
 
 	/* transfer user space qos level to kernel space qos level */
@@ -595,19 +615,39 @@ out_failed:
 	return -ARG_INVALID;
 }
 
-static long ctrl_qos_policy(struct file *file, void __user *uarg)
+static long ctrl_qos_policy(int abi, void __user *uarg)
 {
 	struct qos_policy_datas policy_datas;
+	long ret = -1;
 
-	if (copy_from_user(&policy_datas, uarg, sizeof(struct qos_policy_datas))) {
-		pr_err("[QOS_CTRL] CMD_ID_QOS_APPLY copy data failed\n");
-		return -ARG_INVALID;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
+	switch (abi) {
+	case QOS_IOCTL_ABI_ARM32:
+		ret = copy_from_user(&policy_datas,
+				(void __user *)compat_ptr((compat_uptr_t)uarg),
+				sizeof(struct qos_policy_datas));
+		break;
+	case QOS_IOCTL_ABI_AARCH64:
+		ret = copy_from_user(&policy_datas, uarg, sizeof(struct qos_policy_datas));
+		break;
+	default:
+		pr_err("[QOS_CTRL] abi format error\n");
+		break;
+	}
+
+#pragma GCC diagnostic pop
+
+	if (ret) {
+		pr_err("[QOS_RTG] %s copy user data failed\n", __func__);
+		return ret;
 	}
 
 	return do_qos_policy_change(&policy_datas);
 }
 
-long do_qos_ctrl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+long do_qos_ctrl_ioctl(int abi, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	void __user *uarg = (void __user *)arg;
 	unsigned int func_cmd = _IOC_NR(cmd);
@@ -637,7 +677,7 @@ long do_qos_ctrl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #endif
 
 	if (g_func_array[func_cmd])
-		return (*g_func_array[func_cmd])(file, uarg);
+		return (*g_func_array[func_cmd])(abi, uarg);
 
 	return -EINVAL;
 }
