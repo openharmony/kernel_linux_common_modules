@@ -724,7 +724,7 @@ static int nip_addr_proc_show(struct seq_file *seq, void *v)
 				continue;
 
 			for (j = 0; j < ifp->addr.bitlen / NIP_ADDR_BIT_LEN_8; j++)
-				seq_printf(seq, "%02x", ifp->addr.nip_addr_field8[j]);
+				seq_printf(seq, "%02x", ifp->addr.NIP_ADDR_FIELD8[j]);
 			seq_printf(seq, "\t%8s\n", ifp->idev->dev ? ifp->idev->dev->name : "");
 		}
 
@@ -842,7 +842,7 @@ int nip_addrconf_get_ifaddr(struct net *net, unsigned int cmd, void __user *arg)
 		goto out;
 
 	ifr.nip_ifr_name[IFNAMSIZ - 1] = 0;
-	snin = (struct sockaddr_nin *)&ifr.nip_dev_addr;
+	snin = (struct sockaddr_nin *)&ifr.NIP_DEV_ADDR;
 
 	nip_dbg("dev name is %s", ifr.nip_ifr_name);
 	dev_load(net, ifr.nip_ifr_name);
@@ -886,7 +886,7 @@ void nip_addr_to_str(const struct nip_addr *addr, unsigned char *buf, int buf_le
 
 	total_len = sprintf(buf, "%s", "0x");
 	for (i = 0; (i < addr_num) && (total_len < buf_len); i++) {
-		int len = sprintf(buf + total_len, "%02x", addr->nip_addr_field8[i]);
+		int len = sprintf(buf + total_len, "%02x", addr->NIP_ADDR_FIELD8[i]);
 
 		if (len <= 0)
 			break;

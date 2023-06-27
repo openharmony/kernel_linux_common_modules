@@ -97,9 +97,9 @@ int nip_addr_fmt(char *addr_str, struct nip_addr *sap, int addrlen_input)
 	printf("*************************************************\n");
 	printf("Newip addr len=%d\n", addrlen);
 	for (i = 0; i < addrlen; i++) {
-		sap->nip_addr_field8[i] = addr_str[i * INDEX_2] << INDEX_4;
-		sap->nip_addr_field8[i] += addr_str[i * INDEX_2 + 1];
-		printf("%02x ", sap->nip_addr_field8[i]);
+		sap->NIP_ADDR_FIELD8[i] = addr_str[i * INDEX_2] << INDEX_4;
+		sap->NIP_ADDR_FIELD8[i] += addr_str[i * INDEX_2 + 1];
+		printf("%02x ", sap->NIP_ADDR_FIELD8[i]);
 	}
 	printf("\n*************************************************\n\n");
 

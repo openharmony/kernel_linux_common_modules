@@ -41,7 +41,7 @@ unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
 	if (addr_len) {
 		j = 0;
 		for (i = 0; i < addr_len; i++, j++)
-			pseudo_header[j] = chksum_header->saddr.nip_addr_field8[i];
+			pseudo_header[j] = chksum_header->saddr.NIP_ADDR_FIELD8[i];
 		hdr_len += addr_len;
 	}
 
@@ -49,7 +49,7 @@ unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
 	if (addr_len) {
 		j = hdr_len;
 		for (i = 0; i < addr_len; i++, j++)
-			pseudo_header[j] = chksum_header->daddr.nip_addr_field8[i];
+			pseudo_header[j] = chksum_header->daddr.NIP_ADDR_FIELD8[i];
 		hdr_len += addr_len;
 	}
 

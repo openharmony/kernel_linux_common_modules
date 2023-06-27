@@ -14,20 +14,20 @@
 
 #include "btdev.h"
 
-#define NDEV_NAME(vnet)  bt_virnet_get_ndev_name(vnet)  /* btn1/2/3/4/... */
-#define CDEV_NAME(vnet)  bt_virnet_get_cdev_name(vnet)  /* dev/btdev1/2/3/4/... */
+#define ndev_name(vnet)  bt_virnet_get_ndev_name(vnet)  /* btn1/2/3/4/... */
+#define cdev_name(vnet)  bt_virnet_get_cdev_name(vnet)  /* dev/btdev1/2/3/4/... */
 
 /* /sys/module/btdev/parameters/btdev_debug */
 bool g_btdev_debug;
 module_param_named(btdev_debug, g_btdev_debug, bool, 0644);
 
-#define BTDEV_DBG(fmt, ...) \
+#define btdev_dbg(fmt, ...) \
 do { \
 	if (g_btdev_debug) \
 		pr_crit(fmt, ##__VA_ARGS__); \
 } while (0)
 
-#define BTDEV_DBG_ERR(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
+#define btdev_dbg_err(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
 
 static struct bt_drv *g_bt_drv;
 
@@ -36,7 +36,7 @@ static int bt_seq_show(struct seq_file *m, void *v)
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!g_bt_drv)) {
-		BTDEV_DBG_ERR("invalid bt_drv");
+		btdev_dbg_err("invalid bt_drv");
 		return -EINVAL;
 	}
 
@@ -46,7 +46,7 @@ static int bt_seq_show(struct seq_file *m, void *v)
 
 	list_for_each_entry(vnet, &g_bt_drv->devices_table->head, virnet_entry) {
 		seq_printf(m, "dev: %12s, interface: %7s, state: %12s, MTU: %4d\n",
-			   CDEV_NAME(vnet), NDEV_NAME(vnet),
+			   cdev_name(vnet), ndev_name(vnet),
 			   bt_virnet_get_state_rep(vnet), vnet->ndev->mtu);
 		seq_printf(m, "ring head: %4d, ring tail: %4d, packets num: %4d\n",
 			   vnet->tx_ring->head, vnet->tx_ring->tail,
@@ -59,7 +59,7 @@ static int bt_seq_show(struct seq_file *m, void *v)
 static int bt_proc_open(struct inode *inode, struct file *file)
 {
 	if (unlikely(!inode) || unlikely(!file)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
@@ -100,15 +100,15 @@ static int __bt_virnet_open(struct file *filp, struct bt_virnet *vnet)
 
 		if (unlikely(ret < 0)) {
 			rtnl_unlock();
-			BTDEV_DBG_ERR("%s dev change flags failed, ret=%d", CDEV_NAME(vnet), ret);
+			btdev_dbg_err("%s dev change flags failed, ret=%d", cdev_name(vnet), ret);
 			return -EBUSY;
 		}
 	}
 	rtnl_unlock();
 
-	SET_STATE(vnet, BT_VIRNET_STATE_CONNECTED);
+	set_state(vnet, BT_VIRNET_STATE_CONNECTED);
 	filp->private_data = vnet;
-	BTDEV_DBG("%s has been opened", CDEV_NAME(vnet));
+	btdev_dbg("%s has been opened", cdev_name(vnet));
 	return OK;
 
 	/* If the file is not opened for the first time, an error occurs
@@ -116,12 +116,12 @@ static int __bt_virnet_open(struct file *filp, struct bt_virnet *vnet)
 	 */
 read_twice_already:
 	atomic_inc(&vnet->io_file->read_open_limit);
-	BTDEV_DBG_ERR("%s has been opened for read twice already", CDEV_NAME(vnet));
+	btdev_dbg_err("%s has been opened for read twice already", cdev_name(vnet));
 	return -EBUSY;
 
 write_twice_already:
 	atomic_inc(&vnet->io_file->write_open_limit);
-	BTDEV_DBG_ERR("%s has been opened for write twice already", CDEV_NAME(vnet));
+	btdev_dbg_err("%s has been opened for write twice already", cdev_name(vnet));
 	return -EBUSY;
 }
 
@@ -130,7 +130,7 @@ static int bt_io_file_open(struct inode *node, struct file *filp)
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!node) || unlikely(!filp)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
@@ -146,12 +146,12 @@ static int bt_io_file_release(struct inode *node, struct file *filp)
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!filp) || unlikely(!filp->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
 	vnet = filp->private_data;
-	BTDEV_DBG("%s has been released", CDEV_NAME(vnet));
+	btdev_dbg("%s has been released", cdev_name(vnet));
 
 	/* Set xx_open_limit to 1 when the file is closed */
 	if ((filp->f_flags & O_ACCMODE) == O_RDONLY) {
@@ -163,7 +163,7 @@ static int bt_io_file_release(struct inode *node, struct file *filp)
 		atomic_inc(&vnet->io_file->write_open_limit);
 	}
 
-	SET_STATE(vnet, BT_VIRNET_STATE_DISCONNECTED);
+	set_state(vnet, BT_VIRNET_STATE_DISCONNECTED);
 
 	return OK;
 }
@@ -177,7 +177,7 @@ static ssize_t bt_io_file_read(struct file *filp,
 	struct sk_buff *skb = NULL;
 
 	if (unlikely(!filp) || unlikely(!buffer) || unlikely(!filp->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
@@ -192,7 +192,7 @@ static ssize_t bt_io_file_read(struct file *filp,
 
 	skb = bt_ring_current(vnet->tx_ring);
 	if (unlikely(!skb)) {
-		BTDEV_DBG_ERR("%s invalid skb", CDEV_NAME(vnet));
+		btdev_dbg_err("%s invalid skb", cdev_name(vnet));
 		return -EINVAL;
 	}
 	out_sz = skb->len - MACADDR_LEN;
@@ -202,8 +202,8 @@ static ssize_t bt_io_file_read(struct file *filp,
 		 * the skb cannot be released at this time, because the skb is still unchained
 		 * on the ring buf.
 		 */
-		BTDEV_DBG_ERR("%s usr-buf too small, skb-len=%ld, usr-buf-len=%ld",
-			      CDEV_NAME(vnet), (long)out_sz, (long)size);
+		btdev_dbg_err("%s usr-buf too small, skb-len=%ld, usr-buf-len=%ld",
+			      cdev_name(vnet), (long)out_sz, (long)size);
 		return -EINVAL;
 	}
 
@@ -213,15 +213,15 @@ static ssize_t bt_io_file_read(struct file *filp,
 		 * from the ring buf. In this case, the skb needs to be released when the skb data
 		 * fails to be copied to the user mode.
 		 */
-		BTDEV_DBG_ERR("%s copy to user failed", CDEV_NAME(vnet));
+		btdev_dbg_err("%s copy to user failed", cdev_name(vnet));
 		dev_kfree_skb(skb);
 		return -EIO;
 	}
 	dev_kfree_skb(skb);
 
-	BTDEV_DBG("read %ld data from %s", (long)out_sz, CDEV_NAME(vnet));
+	btdev_dbg("read %ld data from %s", (long)out_sz, cdev_name(vnet));
 	if (unlikely(netif_queue_stopped(vnet->ndev))) {
-		BTDEV_DBG("consume data: wake the queue");
+		btdev_dbg("consume data: wake the queue");
 		netif_wake_queue(vnet->ndev);
 	}
 
@@ -239,7 +239,7 @@ static ssize_t bt_io_file_write(struct file *filp,
 	ssize_t in_sz;
 
 	if (unlikely(!filp) || unlikely(!buffer) || unlikely(!filp->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
@@ -256,7 +256,7 @@ static ssize_t bt_io_file_write(struct file *filp,
 
 	memset(skb->data, 0, MACADDR_LEN);
 	if (copy_from_user(skb->data + MACADDR_LEN, buffer, size)) {
-		BTDEV_DBG_ERR("%s copy from user failed", CDEV_NAME(vnet));
+		btdev_dbg_err("%s copy from user failed", cdev_name(vnet));
 		dev_kfree_skb(skb);
 		return -EIO;
 	}
@@ -267,11 +267,11 @@ static ssize_t bt_io_file_write(struct file *filp,
 	ret = netif_rx_ni(skb);
 
 	if (ret == NET_RX_SUCCESS) {
-		BTDEV_DBG("write %lu bytes data to %s", size, CDEV_NAME(vnet));
+		btdev_dbg("write %lu bytes data to %s", size, cdev_name(vnet));
 		vnet->ndev->stats.rx_packets++;
 		vnet->ndev->stats.rx_bytes += len;
 	} else {
-		BTDEV_DBG_ERR("failed to write %lu bytes data to %s", size, CDEV_NAME(vnet));
+		btdev_dbg_err("failed to write %lu bytes data to %s", size, cdev_name(vnet));
 		vnet->ndev->stats.rx_errors++;
 		vnet->ndev->stats.rx_dropped++;
 	}
@@ -282,10 +282,10 @@ static ssize_t bt_io_file_write(struct file *filp,
 static int bt_virnet_change_mtu(struct net_device *dev, int mtu)
 {
 	if (unlikely(!dev) || unlikely(mtu < 0) || unlikely(mtu > BT_MAX_MTU)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
-	BTDEV_DBG("change %s mtu %u to %u", dev->name, dev->mtu, mtu);
+	btdev_dbg("change %s mtu %u to %u", dev->name, dev->mtu, mtu);
 	dev->mtu = mtu;
 	return OK;
 }
@@ -295,7 +295,7 @@ static int bt_set_mtu(struct net_device *dev, int mtu)
 	int err = OK;
 
 	if (unlikely(mtu < 0) || unlikely(mtu > BT_MAX_MTU)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
@@ -303,9 +303,9 @@ static int bt_set_mtu(struct net_device *dev, int mtu)
 	err = dev_set_mtu(dev, mtu);
 	rtnl_unlock();
 	if (err < 0)
-		BTDEV_DBG_ERR("failed to set %s mtu to %d, err=%d", dev->name, mtu, err);
+		btdev_dbg_err("failed to set %s mtu to %d, err=%d", dev->name, mtu, err);
 	else
-		BTDEV_DBG("set %s mtu to %d", dev->name, mtu);
+		btdev_dbg("set %s mtu to %d", dev->name, mtu);
 
 	return err;
 }
@@ -315,7 +315,7 @@ static int bt_cmd_enable_virnet(struct bt_virnet *vnet, unsigned long arg)
 	int ret;
 
 	if (unlikely(vnet->state != BT_VIRNET_STATE_DISABLED)) {
-		BTDEV_DBG_ERR("%s enable can only be set at disabled state", CDEV_NAME(vnet));
+		btdev_dbg_err("%s enable can only be set at disabled state", cdev_name(vnet));
 		return -EINVAL; // enable failed
 	}
 
@@ -323,12 +323,12 @@ static int bt_cmd_enable_virnet(struct bt_virnet *vnet, unsigned long arg)
 	ret = dev_change_flags(vnet->ndev, vnet->ndev->flags | IFF_UP, NULL);
 	rtnl_unlock();
 	if (unlikely(ret < 0)) {
-		BTDEV_DBG_ERR("%s dev change flags failed, ret=%d", CDEV_NAME(vnet), ret);
+		btdev_dbg_err("%s dev change flags failed, ret=%d", cdev_name(vnet), ret);
 		return -EIO;
 	}
 
-	BTDEV_DBG("%s has been enabled", CDEV_NAME(vnet));
-	SET_STATE(vnet, BT_VIRNET_STATE_CONNECTED);
+	btdev_dbg("%s has been enabled", cdev_name(vnet));
+	set_state(vnet, BT_VIRNET_STATE_CONNECTED);
 	return OK;
 }
 
@@ -337,7 +337,7 @@ static int bt_cmd_disable_virnet(struct bt_virnet *vnet, unsigned long arg)
 	int ret;
 
 	if (unlikely(vnet->state != BT_VIRNET_STATE_CONNECTED)) {
-		BTDEV_DBG_ERR("%s disable can only be set at connected state", CDEV_NAME(vnet));
+		btdev_dbg_err("%s disable can only be set at connected state", cdev_name(vnet));
 		return -EINVAL;
 	}
 
@@ -345,12 +345,12 @@ static int bt_cmd_disable_virnet(struct bt_virnet *vnet, unsigned long arg)
 	ret = dev_change_flags(vnet->ndev, vnet->ndev->flags & ~IFF_UP, NULL);
 	rtnl_unlock();
 	if (unlikely(ret < 0)) {
-		BTDEV_DBG_ERR("%s dev change flags failed, ret=%d", CDEV_NAME(vnet), ret);
+		btdev_dbg_err("%s dev change flags failed, ret=%d", cdev_name(vnet), ret);
 		return -EIO;
 	}
 
-	BTDEV_DBG("%s has been disabled", CDEV_NAME(vnet));
-	SET_STATE(vnet, BT_VIRNET_STATE_DISABLED);
+	btdev_dbg("%s has been disabled", cdev_name(vnet));
+	set_state(vnet, BT_VIRNET_STATE_DISABLED);
 	return OK;
 }
 
@@ -360,17 +360,17 @@ static int bt_cmd_change_mtu(struct bt_virnet *vnet, unsigned long arg)
 	int ret;
 
 	if (unlikely(get_user(mtu, (int __user *)arg))) {
-		BTDEV_DBG_ERR("%s get user failed", NDEV_NAME(vnet));
+		btdev_dbg_err("%s get user failed", ndev_name(vnet));
 		return -EIO;
 	}
 
 	ret = bt_set_mtu(vnet->ndev, mtu);
 	if (unlikely(ret < 0)) {
-		BTDEV_DBG_ERR("%s changed mtu to %d failed", NDEV_NAME(vnet), mtu);
+		btdev_dbg_err("%s changed mtu to %d failed", ndev_name(vnet), mtu);
 		return -EIO;
 	}
 
-	BTDEV_DBG("%s changed mtu to %d", NDEV_NAME(vnet), mtu);
+	btdev_dbg("%s changed mtu to %d", ndev_name(vnet), mtu);
 	return OK;
 }
 
@@ -380,7 +380,7 @@ static int bt_cmd_peek_packet(struct bt_virnet *vnet, unsigned long arg)
 	struct sk_buff *skb;
 
 	if (unlikely(bt_ring_is_empty(vnet->tx_ring))) {
-		BTDEV_DBG_ERR("%s ring is empty", NDEV_NAME(vnet));
+		btdev_dbg_err("%s ring is empty", ndev_name(vnet));
 		return -EAGAIN;
 	}
 
@@ -389,17 +389,17 @@ static int bt_cmd_peek_packet(struct bt_virnet *vnet, unsigned long arg)
 	 */
 	skb = bt_ring_current(vnet->tx_ring);
 	if (unlikely(!skb)) {
-		BTDEV_DBG_ERR("%s invalid skb", NDEV_NAME(vnet));
+		btdev_dbg_err("%s invalid skb", ndev_name(vnet));
 		return -EINVAL;
 	}
 
 	len = skb->len - MACADDR_LEN;
 	if (unlikely(put_user(len, (int __user *)arg))) {
-		BTDEV_DBG_ERR("%s put_user failed", NDEV_NAME(vnet));
+		btdev_dbg_err("%s put_user failed", ndev_name(vnet));
 		return -EIO;
 	}
 
-	BTDEV_DBG("%s get packet len is %u", NDEV_NAME(vnet), len);
+	btdev_dbg("%s get packet len is %u", ndev_name(vnet), len);
 	return OK;
 }
 
@@ -411,7 +411,7 @@ static long bt_io_file_ioctl(struct file *filep,
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!filep) || unlikely(!filep->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 	vnet = filep->private_data;
@@ -429,7 +429,7 @@ static long bt_io_file_ioctl(struct file *filep,
 		ret = bt_cmd_peek_packet(vnet, arg);
 		break;
 	default:
-		BTDEV_DBG_ERR("not a valid cmd(%u)", cmd);
+		btdev_dbg_err("not a valid cmd(%u)", cmd);
 		return -ENOIOCTLCMD;
 	}
 
@@ -442,7 +442,7 @@ static unsigned int bt_io_file_poll(struct file *filp, poll_table *wait)
 	unsigned int mask = 0;
 
 	if (unlikely(!filp) || unlikely(!wait) || unlikely(!filp->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 	vnet = filp->private_data;
@@ -470,7 +470,7 @@ static const struct file_operations g_bt_io_file_ops = {
 static int bt_mng_file_open(struct inode *node, struct file *filp)
 {
 	if (unlikely(!filp)) {
-		BTDEV_DBG_ERR("bt mng file open: invalid filp");
+		btdev_dbg_err("bt mng file open: invalid filp");
 		return -EINVAL;
 	}
 
@@ -480,7 +480,7 @@ static int bt_mng_file_open(struct inode *node, struct file *filp)
 		 * and open_limit is restored to the open state. (set to 0)
 		 */
 		atomic_inc(&g_bt_drv->mng_file->open_limit);
-		BTDEV_DBG_ERR("file %s has been opened already",
+		btdev_dbg_err("file %s has been opened already",
 			      g_bt_drv->mng_file->bt_cdev->dev_filename);
 		return -EBUSY;
 	}
@@ -488,7 +488,7 @@ static int bt_mng_file_open(struct inode *node, struct file *filp)
 	/* open_limit becomes 0 after the file is first opened */
 	filp->private_data = g_bt_drv;
 
-	BTDEV_DBG("%s has been opened", g_bt_drv->mng_file->bt_cdev->dev_filename);
+	btdev_dbg("%s has been opened", g_bt_drv->mng_file->bt_cdev->dev_filename);
 	return OK;
 }
 
@@ -497,7 +497,7 @@ static int bt_mng_file_release(struct inode *node, struct file *filp)
 	struct bt_drv *drv = NULL;
 
 	if (unlikely(!filp) || unlikely(!filp->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 	drv = filp->private_data;
@@ -505,7 +505,7 @@ static int bt_mng_file_release(struct inode *node, struct file *filp)
 	/* Set open_limit to 1 when the file is closed */
 	atomic_inc(&drv->mng_file->open_limit);
 
-	BTDEV_DBG("%s has been released", g_bt_drv->mng_file->bt_cdev->dev_filename);
+	btdev_dbg("%s has been released", g_bt_drv->mng_file->bt_cdev->dev_filename);
 	return OK;
 }
 
@@ -519,39 +519,38 @@ static int bt_cmd_create_virnet(struct bt_drv *bt_mng, unsigned long arg)
 
 	mutex_lock(&bt_mng->bitmap_lock);
 	id = bt_get_unused_id(bt_mng->bitmap);
-
 	if ((unlikely(bt_mng->devices_table->num >= BT_VIRNET_MAX_NUM)) ||
 	    (unlikely(id < 0))) {
-		BTDEV_DBG_ERR("reach the limit of max virnets");
+		btdev_dbg_err("reach the limit of max virnets");
 		goto virnet_create_failed;
 	}
 	vnet = bt_virnet_create(bt_mng, id);
 	if (unlikely(!vnet)) {
-		BTDEV_DBG_ERR("bt virnet create failed");
+		btdev_dbg_err("bt virnet create failed");
 		goto virnet_create_failed;
 	}
 
 	ret = bt_table_add_device(bt_mng->devices_table, vnet);
 	if (unlikely(ret < 0)) {
-		BTDEV_DBG_ERR("bt table add device failed: ret=%d", ret);
+		btdev_dbg_err("bt table add device failed: ret=%d", ret);
 		goto add_device_failed;
 	}
 
 	bt_set_bit(&bt_mng->bitmap, id);
 	mutex_unlock(&bt_mng->bitmap_lock);
 
-	memcpy(vp.ifa_name, NDEV_NAME(vnet), sizeof(vp.ifa_name));
-	memcpy(vp.cfile_name, CDEV_NAME(vnet), sizeof(vp.cfile_name));
+	memcpy(vp.ifa_name, ndev_name(vnet), sizeof(vp.ifa_name));
+	memcpy(vp.cfile_name, cdev_name(vnet), sizeof(vp.cfile_name));
 
 	mdelay(DELAY_100_MS);
 
 	size = copy_to_user((void __user *)arg, &vp, sizeof(struct bt_uioc_args));
 	if (unlikely(size)) {
-		BTDEV_DBG_ERR("copy_to_user failed: left size=%lu", size);
+		btdev_dbg_err("copy_to_user failed: left size=%lu", size);
 		goto copy_to_user_failed;
 	}
 
-	BTDEV_DBG("%s has been created", NDEV_NAME(vnet));
+	btdev_dbg("%s has been created", ndev_name(vnet));
 	return OK;
 
 copy_to_user_failed:
@@ -578,17 +577,17 @@ static int bt_cmd_delete_virnet(struct bt_drv *bt_mng, unsigned long arg)
 	size = copy_from_user(&vp, (void __user *)arg,
 			      sizeof(struct bt_uioc_args));
 	if (unlikely(size)) {
-		BTDEV_DBG_ERR("copy_from_user failed: left size=%lu", size);
+		btdev_dbg_err("copy_from_user failed: left size=%lu", size);
 		return -EIO;
 	}
 
 	vnet = bt_table_find(bt_mng->devices_table, vp.ifa_name);
 	if (unlikely(!vnet)) {
-		BTDEV_DBG_ERR("virnet: %s cannot be found in bt table", vp.ifa_name);
+		btdev_dbg_err("virnet: %s cannot be found in bt table", vp.ifa_name);
 		return -EIO; // not found
 	}
 
-	BTDEV_DBG("%s has been deleted", NDEV_NAME(vnet));
+	btdev_dbg("%s has been deleted", ndev_name(vnet));
 	mutex_lock(&bt_mng->bitmap_lock);
 	err = bt_virnet_get_cdev_number(vnet, &number);
 	if (likely(!err))
@@ -602,7 +601,7 @@ static int bt_cmd_delete_virnet(struct bt_drv *bt_mng, unsigned long arg)
 static int bt_cmd_query_all_virnets(struct bt_drv *bt_mng, unsigned long arg)
 {
 	if (unlikely(put_user(bt_mng->bitmap, (u32 *)arg))) {
-		BTDEV_DBG_ERR("put_user failed");
+		btdev_dbg_err("put_user failed");
 		return -EIO;
 	}
 	return OK;
@@ -621,7 +620,7 @@ static long bt_mng_file_ioctl(struct file *filep,
 	struct bt_drv *bt_mng = NULL;
 
 	if (unlikely(!filep) || unlikely(!filep->private_data)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 	bt_mng = filep->private_data;
@@ -640,7 +639,7 @@ static long bt_mng_file_ioctl(struct file *filep,
 		ret = bt_cmd_delete_all_virnets(bt_mng, arg);
 		break;
 	default:
-		BTDEV_DBG_ERR("not a valid cmd(%u)", cmd);
+		btdev_dbg_err("not a valid cmd(%u)", cmd);
 		return -ENOIOCTLCMD;
 	}
 	return ret;
@@ -660,21 +659,20 @@ static netdev_tx_t bt_virnet_xmit(struct sk_buff *skb,
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!skb) || unlikely(!dev)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
 	vnet = bt_table_find(g_bt_drv->devices_table, dev->name);
 	if (unlikely(!vnet)) {
-		BTDEV_DBG_ERR("bt_table_find %s failed", NDEV_NAME(vnet));
+		btdev_dbg_err("bt_table_find %s failed", ndev_name(vnet));
 		return -EINVAL;
 	}
 
 	ret = bt_virnet_produce_data(vnet, (void *)skb);
-
 	if (unlikely(ret < 0)) {
-		BTDEV_DBG("%s produce data failed: ring is full, need to stop queue",
-			  NDEV_NAME(vnet));
+		btdev_dbg("%s produce data failed: ring is full, need to stop queue",
+			  ndev_name(vnet));
 		netif_stop_queue(vnet->ndev);
 		return NETDEV_TX_BUSY;
 	}
@@ -682,7 +680,7 @@ static netdev_tx_t bt_virnet_xmit(struct sk_buff *skb,
 	vnet->ndev->stats.tx_packets++;
 	vnet->ndev->stats.tx_bytes += skb->len;
 
-	BTDEV_DBG("%s send success, skb-len=%u", NDEV_NAME(vnet), skb->len);
+	btdev_dbg("%s send success, skb-len=%u", ndev_name(vnet), skb->len);
 	return NETDEV_TX_OK;
 }
 
@@ -695,7 +693,7 @@ static struct bt_table *bt_table_init(void)
 	struct bt_table *tbl = kmalloc(sizeof(*tbl), GFP_KERNEL);
 
 	if (unlikely(!tbl)) {
-		BTDEV_DBG_ERR("alloc failed");
+		btdev_dbg_err("alloc failed");
 		return NULL;
 	}
 
@@ -710,17 +708,17 @@ static int bt_table_add_device(struct bt_table *tbl, struct bt_virnet *vn)
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!tbl)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return -EINVAL;
 	}
 
-	vnet = bt_table_find(tbl, NDEV_NAME(vn));
+	vnet = bt_table_find(tbl, ndev_name(vn));
 	if (unlikely(vnet)) {
-		BTDEV_DBG_ERR("found duplicated device %s", NDEV_NAME(vn));
+		btdev_dbg_err("found duplicated device %s", ndev_name(vn));
 		return -ENOIOCTLCMD; // duplicated
 	}
 
-	BTDEV_DBG("%s has been added", NDEV_NAME(vn));
+	btdev_dbg("%s has been added", ndev_name(vn));
 	mutex_lock(&tbl->tbl_lock);
 	list_add_tail(&vn->virnet_entry, &tbl->head);
 	if (tbl->num < UINT32_MAX)
@@ -735,7 +733,7 @@ static void bt_table_remove_device(struct bt_table *tbl, struct bt_virnet *vn)
 	if (unlikely(!tbl))
 		return;
 
-	BTDEV_DBG("%s has been removed", NDEV_NAME(vn));
+	btdev_dbg("%s has been removed", ndev_name(vn));
 	mutex_lock(&tbl->tbl_lock);
 	list_del(&vn->virnet_entry);
 	if (tbl->num)
@@ -748,12 +746,12 @@ static struct bt_virnet *bt_table_find(struct bt_table *tbl, const char *ifa_nam
 	struct bt_virnet *vnet = NULL;
 
 	if (unlikely(!tbl) || unlikely(!ifa_name)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		return NULL;
 	}
 
 	list_for_each_entry(vnet, &tbl->head, virnet_entry) {
-		if (!strcmp(NDEV_NAME(vnet), ifa_name))
+		if (!strcmp(ndev_name(vnet), ifa_name))
 			return vnet;
 	}
 
@@ -763,7 +761,8 @@ static struct bt_virnet *bt_table_find(struct bt_table *tbl, const char *ifa_nam
 static void __bt_table_delete_all(struct bt_drv *drv)
 {
 	dev_t number;
-	struct bt_virnet *vnet = NULL, *tmp_vnet = NULL;
+	struct bt_virnet *vnet = NULL;
+	struct bt_virnet *tmp_vnet = NULL;
 
 	if (unlikely(!g_bt_drv->devices_table))
 		return;
@@ -777,7 +776,7 @@ static void __bt_table_delete_all(struct bt_drv *drv)
 		if (likely(!err))
 			bt_clear_bit(&drv->bitmap, (u32)MINOR(number));
 		list_del(&vnet->virnet_entry);
-		BTDEV_DBG("%s has been deleted", NDEV_NAME(vnet));
+		btdev_dbg("%s has been deleted", ndev_name(vnet));
 		bt_virnet_destroy(vnet);
 	}
 	drv->devices_table->num = 0;
@@ -814,7 +813,7 @@ static struct bt_ring *__bt_ring_create(int size)
 
 	ring = kmalloc(sizeof(*ring), GFP_KERNEL);
 	if (unlikely(!ring)) {
-		BTDEV_DBG_ERR("ring alloc failed");
+		btdev_dbg_err("ring alloc failed");
 		return NULL;
 	}
 
@@ -822,7 +821,7 @@ static struct bt_ring *__bt_ring_create(int size)
 	ring->tail = 0;
 	ring->data = kmalloc_array(size, sizeof(void *), GFP_KERNEL);
 	if (unlikely(!ring->data)) {
-		BTDEV_DBG_ERR("ring data allocfailed");
+		btdev_dbg_err("ring data allocfailed");
 		kfree(ring);
 		return NULL;
 	}
@@ -893,7 +892,7 @@ static void bt_ring_destroy(struct bt_ring *ring)
 static int bt_virnet_produce_data(struct bt_virnet *dev, void *data)
 {
 	if (unlikely(bt_ring_is_full(dev->tx_ring))) {
-		BTDEV_DBG("ring is full");
+		btdev_dbg("ring is full");
 		return -ENFILE;
 	}
 
@@ -916,7 +915,7 @@ static struct class *bt_dev_class_create(void)
 	struct class *cls = class_create(THIS_MODULE, "bt");
 
 	if (IS_ERR(cls)) {
-		BTDEV_DBG_ERR("create struct class failed");
+		btdev_dbg_err("create struct class failed");
 		return NULL;
 	}
 	return cls;
@@ -944,25 +943,25 @@ static int bt_cdev_device_create(struct bt_cdev *dev,
 	int ret;
 
 	if (unlikely(!cls)) {
-		BTDEV_DBG_ERR("not a valid class");
+		btdev_dbg_err("not a valid class");
 		return -EINVAL;
 	}
 
 	dev->bt_class = cls;
 	device = device_create(cls, NULL, devno, NULL, "%s%u", BT_DEV_NAME_PREFIX, id);
 	if (IS_ERR(device)) {
-		BTDEV_DBG_ERR("create device failed, id=%d", id);
+		btdev_dbg_err("create device failed, id=%d", id);
 		return -EIO;
 	}
 	ret = snprintf(dev->dev_filename, sizeof(dev->dev_filename),
 		       "%s%u", BT_DEV_PATH_PREFIX, id);
 	if (ret < 0) {
-		BTDEV_DBG_ERR("snprintf failed, id=%d", id);
+		btdev_dbg_err("snprintf failed, id=%d", id);
 		bt_cdev_device_destroy(dev);
 		return -EFAULT;
 	}
 
-	BTDEV_DBG("%s has been created", dev->dev_filename);
+	btdev_dbg("%s has been created", dev->dev_filename);
 	return OK;
 }
 
@@ -976,13 +975,13 @@ static struct bt_cdev *bt_cdev_create(const struct file_operations *ops,
 
 	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
 	if (unlikely(!dev)) {
-		BTDEV_DBG_ERR("dev alloc failed, id=%d", id);
+		btdev_dbg_err("dev alloc failed, id=%d", id);
 		goto dev_alloc_failed;
 	}
 
 	chrdev = cdev_alloc();
 	if (unlikely(!chrdev)) {
-		BTDEV_DBG_ERR("cdev alloc failed, id=%d", id);
+		btdev_dbg_err("cdev alloc failed, id=%d", id);
 		goto cdev_alloc_failed;
 	}
 
@@ -991,12 +990,12 @@ static struct bt_cdev *bt_cdev_create(const struct file_operations *ops,
 
 	ret = cdev_add(chrdev, MKDEV(BT_DEV_MAJOR, minor), 1);
 	if (unlikely(ret < 0)) {
-		BTDEV_DBG_ERR("cdev add failed, id=%d", id);
+		btdev_dbg_err("cdev add failed, id=%d", id);
 		goto cdev_add_failed;
 	}
 
 	if (unlikely(bt_cdev_device_create(dev, g_bt_drv->bt_class, minor) < 0)) {
-		BTDEV_DBG_ERR("bt cdev device create failed, id=%d", id);
+		btdev_dbg_err("bt cdev device create failed, id=%d", id);
 		goto cdev_device_create_failed;
 	}
 
@@ -1029,7 +1028,7 @@ static void bt_cdev_delete(struct bt_cdev *bt_cdev)
 
 		cdev_del(bt_cdev->cdev);
 	} else {
-		BTDEV_DBG_ERR("cdev is null");
+		btdev_dbg_err("cdev is null");
 	}
 }
 
@@ -1041,12 +1040,12 @@ static struct bt_io_file *bt_create_io_file(u32 id)
 	struct bt_io_file *file = kmalloc(sizeof(*file), GFP_KERNEL);
 
 	if (unlikely(!file)) {
-		BTDEV_DBG_ERR("file alloc failed, id=%d", id);
+		btdev_dbg_err("file alloc failed, id=%d", id);
 		return NULL;
 	}
 	file->bt_cdev = bt_cdev_create(&g_bt_io_file_ops, id);
 	if (unlikely(!file->bt_cdev)) {
-		BTDEV_DBG_ERR("create cdev failed, id=%d", id);
+		btdev_dbg_err("create cdev failed, id=%d", id);
 		kfree(file);
 		return NULL;
 	}
@@ -1062,7 +1061,7 @@ static struct bt_io_file **bt_create_io_files(void)
 						GFP_KERNEL);
 
 	if (unlikely(!all_files)) {
-		BTDEV_DBG_ERR("all_files alloc failed");
+		btdev_dbg_err("all_files alloc failed");
 		return NULL;
 	}
 	for (i = 0; i < BT_VIRNET_MAX_NUM; ++i)
@@ -1099,20 +1098,20 @@ static struct bt_mng_file *bt_create_mng_file(int id)
 	struct bt_mng_file *file = kmalloc(sizeof(*file), GFP_KERNEL);
 
 	if (unlikely(!file)) {
-		BTDEV_DBG_ERR("file alloc failed");
+		btdev_dbg_err("file alloc failed");
 		return NULL;
 	}
 
 	file->bt_cdev = bt_cdev_create(&g_bt_mng_file_ops, id);
 	if (unlikely(!file->bt_cdev)) {
-		BTDEV_DBG_ERR("create cdev failed");
+		btdev_dbg_err("create cdev failed");
 		kfree(file);
 		return NULL;
 	}
 
 	atomic_set(&file->open_limit, 1);
 
-	BTDEV_DBG("mng file has been created");
+	btdev_dbg("mng file has been created");
 	return file;
 }
 
@@ -1143,17 +1142,17 @@ static struct net_device *bt_net_device_create(u32 id)
 	char ifa_name[IFNAMSIZ];
 
 	if (unlikely(id < 0) || unlikely(id > BT_VIRNET_MAX_NUM)) {
-		BTDEV_DBG_ERR("invalid id");
+		btdev_dbg_err("invalid id");
 		return NULL;
 	}
 	err = snprintf(ifa_name, sizeof(ifa_name), "%s%d", BT_VIRNET_NAME_PREFIX, id);
 	if (err < 0) {
-		BTDEV_DBG_ERR("snprintf failed, id=%d", id);
+		btdev_dbg_err("snprintf failed, id=%d", id);
 		return NULL;
 	}
 	ndev = alloc_netdev(0, ifa_name, NET_NAME_UNKNOWN, ether_setup);
 	if (unlikely(!ndev)) {
-		BTDEV_DBG_ERR("%s ndev alloc failed", ifa_name);
+		btdev_dbg_err("%s ndev alloc failed", ifa_name);
 		return NULL;
 	}
 
@@ -1165,12 +1164,12 @@ static struct net_device *bt_net_device_create(u32 id)
 
 	err = register_netdev(ndev);
 	if (unlikely(err)) {
-		BTDEV_DBG_ERR("%s register netdev failed", ifa_name);
+		btdev_dbg_err("%s register netdev failed", ifa_name);
 		free_netdev(ndev);
 		return NULL;
 	}
 
-	BTDEV_DBG("%s has been created", ifa_name);
+	btdev_dbg("%s has been created", ifa_name);
 	return ndev;
 }
 
@@ -1179,7 +1178,7 @@ static struct net_device *bt_net_device_create(u32 id)
  */
 static void bt_net_device_destroy(struct net_device *dev)
 {
-	BTDEV_DBG("%s has been destroyed", dev->name);
+	btdev_dbg("%s has been destroyed", dev->name);
 	unregister_netdev(dev);
 	free_netdev(dev);
 }
@@ -1200,32 +1199,32 @@ static struct bt_virnet *bt_virnet_create(struct bt_drv *bt_mng, u32 id)
 	struct bt_virnet *vnet = kmalloc(sizeof(*vnet), GFP_KERNEL);
 
 	if (unlikely(!vnet)) {
-		BTDEV_DBG_ERR("invalid parameter");
+		btdev_dbg_err("invalid parameter");
 		goto out_of_memory;
 	}
 
 	vnet->tx_ring = bt_ring_create();
 	if (unlikely(!vnet->tx_ring)) {
-		BTDEV_DBG_ERR("create ring failed");
+		btdev_dbg_err("create ring failed");
 		goto bt_ring_create_failed;
 	}
 
 	vnet->ndev = bt_net_device_create(id);
 	if (unlikely(!vnet->ndev)) {
-		BTDEV_DBG_ERR("create net device failed");
+		btdev_dbg_err("create net device failed");
 		goto net_device_create_failed;
 	}
 
 	vnet->io_file = bt_get_io_file(bt_mng, id);
 	if (unlikely(!vnet->io_file)) {
-		BTDEV_DBG_ERR("create cdev failed");
+		btdev_dbg_err("create cdev failed");
 		goto get_io_file_failed;
 	}
 
 	init_waitqueue_head(&vnet->rx_queue);
 
-	SET_STATE(vnet, BT_VIRNET_STATE_CREATED);
-	BTDEV_DBG("%s has been created", CDEV_NAME(vnet));
+	set_state(vnet, BT_VIRNET_STATE_CREATED);
+	btdev_dbg("%s has been created", cdev_name(vnet));
 	return vnet;
 
 get_io_file_failed:
@@ -1243,11 +1242,11 @@ out_of_memory:
 
 static void bt_virnet_destroy(struct bt_virnet *vnet)
 {
-	BTDEV_DBG("%s has been destroyed", NDEV_NAME(vnet));
+	btdev_dbg("%s has been destroyed", ndev_name(vnet));
 	bt_ring_destroy(vnet->tx_ring);
 	bt_net_device_destroy(vnet->ndev);
 
-	SET_STATE(vnet, BT_VIRNET_STATE_DELETED);
+	set_state(vnet, BT_VIRNET_STATE_DELETED);
 
 	kfree(vnet);
 }
@@ -1266,7 +1265,105 @@ static void __exit bt_module_release(void)
 
 	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
 	remove_proc_entry("bt_info_proc", NULL);
-	BTDEV_DBG("success");
+	btdev_dbg("success");
+}
+
+static int __bt_module_base_init(void)
+{
+	int ret = 0;
+
+	g_bt_drv = kmalloc(sizeof(*g_bt_drv), GFP_KERNEL);
+	if (unlikely(!g_bt_drv)) {
+		btdev_dbg_err("bt_drv alloc failed");
+		ret = -ENOMEM;
+		goto btdrv_alloc_failed;
+	}
+
+	if (unlikely(bt_cdev_region_init(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM) < 0)) {
+		btdev_dbg_err("bt cdev region init failed");
+		ret = -EFAULT;
+		goto cdev_region_fail;
+	}
+
+	g_bt_drv->devices_table = bt_table_init();
+	if (unlikely(!g_bt_drv->devices_table)) {
+		btdev_dbg_err("bt table init failed");
+		ret = -ENOMEM;
+		goto table_init_fail;
+	}
+
+	g_bt_drv->bt_class = bt_dev_class_create();
+	if (unlikely(!g_bt_drv->bt_class)) {
+		btdev_dbg_err("class create failed");
+		ret = -ENOMEM;
+		goto class_create_fail;
+	}
+
+	g_bt_drv->io_files = bt_create_io_files();
+	if (unlikely(!g_bt_drv->io_files)) {
+		btdev_dbg_err("bt create io files failed");
+		ret = -ENOMEM;
+		goto io_files_create_fail;
+	}
+
+	mutex_init(&g_bt_drv->bitmap_lock);
+	g_bt_drv->bitmap = 0;
+	return ret;
+
+io_files_create_fail:
+	bt_dev_class_destroy(g_bt_drv->bt_class);
+
+class_create_fail:
+	bt_table_destroy(g_bt_drv);
+
+table_init_fail:
+	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
+
+cdev_region_fail:
+	kfree(g_bt_drv);
+	g_bt_drv = NULL;
+
+btdrv_alloc_failed:
+	return ret;
+}
+
+static int __bt_module_dev_create(void)
+{
+	int mid = 0;
+	struct proc_dir_entry *entry = NULL;
+	int ret = 0;
+
+	mutex_lock(&g_bt_drv->bitmap_lock);
+	g_bt_drv->mng_file = bt_create_mng_file(mid);
+	if (unlikely(!g_bt_drv->mng_file)) {
+		btdev_dbg_err("bt create mng file failed");
+		ret = -ENOMEM;
+		mutex_unlock(&g_bt_drv->bitmap_lock);
+		goto mng_file_create_fail;
+	}
+	bt_set_bit(&g_bt_drv->bitmap, mid);
+	mutex_unlock(&g_bt_drv->bitmap_lock);
+
+	entry = proc_create_data("bt_info_proc", 0, NULL, &g_bt_proc_fops, NULL);
+	if (unlikely(!entry)) {
+		btdev_dbg_err("create proc data failed");
+		ret = -ENOMEM;
+		goto proc_create_fail;
+	}
+
+	return ret;
+proc_create_fail:
+	bt_delete_mng_file(g_bt_drv->mng_file);
+
+mng_file_create_fail:
+	bt_delete_io_files(g_bt_drv);
+	bt_dev_class_destroy(g_bt_drv->bt_class);
+	bt_table_destroy(g_bt_drv);
+	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
+	kfree(g_bt_drv);
+	g_bt_drv = NULL;
+
+	return ret;
 }
 
 /**
@@ -1274,80 +1371,13 @@ static void __exit bt_module_release(void)
  */
 static int __init bt_module_init(void)
 {
-	int mid = 0;
-	struct proc_dir_entry *entry = NULL;
+	int ret;
 
-	g_bt_drv = kmalloc(sizeof(*g_bt_drv), GFP_KERNEL);
-	if (unlikely(!g_bt_drv)) {
-		BTDEV_DBG_ERR("bt_drv alloc failed");
-		goto out_of_memory;
-	}
+	ret = __bt_module_base_init();
+	if (ret < 0)
+		return ret;
 
-	if (unlikely(bt_cdev_region_init(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM) < 0)) {
-		BTDEV_DBG_ERR("bt cdev region init failed");
-		goto cdev_region_failed;
-	}
-
-	g_bt_drv->devices_table = bt_table_init();
-	if (unlikely(!g_bt_drv->devices_table)) {
-		BTDEV_DBG_ERR("bt table init failed");
-		goto table_init_failed;
-	}
-
-	g_bt_drv->bt_class = bt_dev_class_create();
-	if (unlikely(!g_bt_drv->bt_class)) {
-		BTDEV_DBG_ERR("class create failed");
-		goto class_create_failed;
-	}
-
-	g_bt_drv->io_files = bt_create_io_files();
-	if (unlikely(!g_bt_drv->io_files)) {
-		BTDEV_DBG_ERR("bt create io files failed");
-		goto io_files_create_failed;
-	}
-
-	mutex_init(&g_bt_drv->bitmap_lock);
-	g_bt_drv->bitmap = 0;
-
-	mutex_lock(&g_bt_drv->bitmap_lock);
-	g_bt_drv->mng_file = bt_create_mng_file(mid);
-	if (unlikely(!g_bt_drv->mng_file)) {
-		BTDEV_DBG_ERR("bt create mng file failed");
-		mutex_unlock(&g_bt_drv->bitmap_lock);
-		goto mng_file_create_failed;
-	}
-	bt_set_bit(&g_bt_drv->bitmap, mid);
-	mutex_unlock(&g_bt_drv->bitmap_lock);
-
-	entry = proc_create_data("bt_info_proc", 0, NULL, &g_bt_proc_fops, NULL);
-	if (unlikely(!entry)) {
-		BTDEV_DBG_ERR("create proc data failed");
-		goto proc_create_failed;
-	}
-
-	BTDEV_DBG("success");
-	return OK;
-
-proc_create_failed:
-	bt_delete_mng_file(g_bt_drv->mng_file);
-
-mng_file_create_failed:
-	bt_delete_io_files(g_bt_drv);
-
-io_files_create_failed:
-	bt_dev_class_destroy(g_bt_drv->bt_class);
-
-class_create_failed:
-	bt_table_destroy(g_bt_drv);
-
-table_init_failed:
-	bt_cdev_region_destroy(BT_DEV_MAJOR, BT_VIRNET_MAX_NUM);
-
-cdev_region_failed:
-	kfree(g_bt_drv);
-
-out_of_memory:
-	return -1;
+	return __bt_module_dev_create();
 }
 
 module_init(bt_module_init);

@@ -12,13 +12,13 @@
 
 struct flow_nip {
 	struct flowi_common __fl_common;
-#define flowin_oif		__fl_common.flowic_oif
-#define flowin_iif		__fl_common.flowic_iif
+#define FLOWIN_OIF		__fl_common.flowic_oif
+#define FLOWIN_IIF		__fl_common.flowic_iif
 	struct nip_addr daddr;
 	struct nip_addr saddr;
 	union flowi_uli uli;
-#define fln_sport		uli.ports.sport
-#define fln_dport		uli.ports.dport
+#define FLN_SPORT		uli.ports.sport
+#define FLN_DPORT		uli.ports.dport
 } __attribute__((__aligned__(BITS_PER_LONG / 8)));
 
 #endif

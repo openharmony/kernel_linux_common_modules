@@ -16,20 +16,20 @@
  */
 const struct nip_addr nip_any_addr = {
 	.bitlen = NIP_ADDR_BIT_LEN_16,
-	.nip_addr_field8[0] = 0xFF, /* 0xFF09 addr, big-endian */
-	.nip_addr_field8[1] = 0x09,
+	.NIP_ADDR_FIELD8[0] = 0xFF, /* 0xFF09 addr, big-endian */
+	.NIP_ADDR_FIELD8[1] = 0x09,
 };
 
 const struct nip_addr nip_broadcast_addr_arp = {
 	.bitlen = NIP_ADDR_BIT_LEN_16,
-	.nip_addr_field8[0] = 0xFF, /* 0xFF04 addr, big-endian */
-	.nip_addr_field8[1] = 0x04,
+	.NIP_ADDR_FIELD8[0] = 0xFF, /* 0xFF04 addr, big-endian */
+	.NIP_ADDR_FIELD8[1] = 0x04,
 };
 
 static const struct nip_addr nip_local_addr = {
 	.bitlen = NIP_ADDR_BIT_LEN_16,
-	.nip_addr_field8[0] = 0xFF, /* 0xFF00 addr, big-endian */
-	.nip_addr_field8[1] = 0x00,
+	.NIP_ADDR_FIELD8[0] = 0xFF, /* 0xFF00 addr, big-endian */
+	.NIP_ADDR_FIELD8[1] = 0x00,
 };
 
 enum addr_check_ret {
@@ -133,8 +133,8 @@ int is_nip_local_addr(const struct nip_addr *addr)
 	int result = 0;
 
 	if (addr->bitlen == NIP_ADDR_BIT_LEN_16) {
-		if (addr->nip_addr_field16[0] == nip_local_addr.nip_addr_field16[0] &&
-		    addr->nip_addr_field16[1] == nip_local_addr.nip_addr_field16[1])
+		if (addr->NIP_ADDR_FIELD16[0] == nip_local_addr.NIP_ADDR_FIELD16[0] &&
+		    addr->NIP_ADDR_FIELD16[1] == nip_local_addr.NIP_ADDR_FIELD16[1])
 			result = 1;
 	}
 	return result;
@@ -308,14 +308,14 @@ int nip_addr_invalid(const struct nip_addr *addr)
 	int ret = NIP_ADDR_UNKNOWN;
 	unsigned char first_byte, second_byte, third_byte;
 
-	first_byte = addr->nip_addr_field8[NIP_8BIT_ADDR_INDEX_0];
-	second_byte = addr->nip_addr_field8[NIP_8BIT_ADDR_INDEX_1];
-	third_byte = addr->nip_addr_field8[NIP_8BIT_ADDR_INDEX_2];
+	first_byte = addr->NIP_ADDR_FIELD8[NIP_8BIT_ADDR_INDEX_0];
+	second_byte = addr->NIP_ADDR_FIELD8[NIP_8BIT_ADDR_INDEX_1];
+	third_byte = addr->NIP_ADDR_FIELD8[NIP_8BIT_ADDR_INDEX_2];
 	addr_len = addr->bitlen / NIP_ADDR_BIT_LEN_8;
 
 	/* The value of the field after the effective length of the short address should be 0 */
 	for (i = addr_len; i < NIP_8BIT_ADDR_INDEX_MAX; i++) {
-		if (addr->nip_addr_field8[i] > 0x00)
+		if (addr->NIP_ADDR_FIELD8[i] > 0x00)
 			return ADDR_BITLEN_INVALID;
 	}
 
@@ -345,7 +345,7 @@ int nip_addr_invalid(const struct nip_addr *addr)
  */
 int nip_addr_public(const struct nip_addr *addr)
 {
-	if (is_public_addr_flag(addr->nip_addr_field8[NIP_8BIT_ADDR_INDEX_0]) &&
+	if (is_public_addr_flag(addr->NIP_ADDR_FIELD8[NIP_8BIT_ADDR_INDEX_0]) &&
 	    addr->bitlen == NIP_ADDR_BIT_LEN_16)
 		return 1;
 	else
@@ -358,8 +358,8 @@ int nip_addr_any(const struct nip_addr *addr)
 	int result = 0;
 
 	if (addr->bitlen == NIP_ADDR_BIT_LEN_16) {
-		if (addr->nip_addr_field16[0] == nip_any_addr.nip_addr_field16[0] &&
-		    addr->nip_addr_field16[1] == nip_any_addr.nip_addr_field16[1])
+		if (addr->NIP_ADDR_FIELD16[0] == nip_any_addr.NIP_ADDR_FIELD16[0] &&
+		    addr->NIP_ADDR_FIELD16[1] == nip_any_addr.NIP_ADDR_FIELD16[1])
 			result = 1;
 	}
 	return result;
@@ -368,7 +368,7 @@ int nip_addr_any(const struct nip_addr *addr)
 int get_nip_addr_len(const struct nip_addr *addr)
 {
 	int len = 0;
-	unsigned char first_byte = addr->nip_addr_field8[0];
+	unsigned char first_byte = addr->NIP_ADDR_FIELD8[0];
 
 	if (is_1byte_addr_flag(first_byte))
 		len = NIP_ADDR_LEN_1;
@@ -396,7 +396,7 @@ unsigned char *build_nip_addr(const struct nip_addr *addr, unsigned char *buf)
 		return 0;
 
 	for (i = 0; i < addr_len; i++) {
-		*p = addr->nip_addr_field8[i];
+		*p = addr->NIP_ADDR_FIELD8[i];
 		p++;
 	}
 
@@ -410,13 +410,13 @@ unsigned char *decode_nip_addr(unsigned char *buf, struct nip_addr *addr)
 	int addr_len;
 	unsigned char *p = buf;
 
-	addr->nip_addr_field8[0] = *p;
+	addr->NIP_ADDR_FIELD8[0] = *p;
 	addr_len = get_nip_addr_len(addr);
 	if (addr_len == 0)
 		return 0;
 
 	for (i = 0; i < addr_len; i++) {
-		addr->nip_addr_field8[i] = *p;
+		addr->NIP_ADDR_FIELD8[i] = *p;
 		p++;
 	}
 	addr->bitlen = addr_len * NIP_ADDR_BIT_LEN_8;
