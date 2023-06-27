@@ -67,8 +67,8 @@ int main(int argc, char **argv)
 	si_local.sin_family = AF_NINET;
 	si_local.sin_port = htons(TCP_SERVER_PORT);
 	// 2-byte address of the server: 0xDE00
-	si_local.sin_addr.nip_addr_field8[INDEX_0] = 0xDE;
-	si_local.sin_addr.nip_addr_field8[INDEX_1] = 0x00;
+	si_local.sin_addr.NIP_ADDR_FIELD8[INDEX_0] = 0xDE;
+	si_local.sin_addr.NIP_ADDR_FIELD8[INDEX_1] = 0x00;
 	si_local.sin_addr.bitlen = NIP_ADDR_BIT_LEN_16; // 2-byte: 16bit
 
 	if (bind(fd, (const struct sockaddr *)&si_local, sizeof(si_local)) < 0) {
@@ -76,8 +76,8 @@ int main(int argc, char **argv)
 		goto END;
 	}
 	printf("bind success, addr=0x%02x%02x, port=%d\n",
-	       si_local.sin_addr.nip_addr_field8[INDEX_0],
-	       si_local.sin_addr.nip_addr_field8[INDEX_1], TCP_SERVER_PORT);
+	       si_local.sin_addr.NIP_ADDR_FIELD8[INDEX_0],
+	       si_local.sin_addr.NIP_ADDR_FIELD8[INDEX_1], TCP_SERVER_PORT);
 
 	if (listen(fd, LISTEN_MAX) < 0) {
 		perror("listen");

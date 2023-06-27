@@ -12,25 +12,26 @@
 #ifdef CONFIG_NEWIP_HOOKS
 #define pr_fmt(fmt) KBUILD_MODNAME ": [%s:%d] " fmt, __func__, __LINE__
 
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/hck/lite_hck_inet.h>
+#include <linux/netdevice.h>
 #include <net/ninet_hashtables.h>      /* ninet_ehashfn */
 #include <net/if_ninet.h>
-#include <trace/hooks/inet.h>
 #include "tcp_nip_parameter.h"
 
 /* call the newip hook function in sk_ehashfn function (net\ipv4\inet_hashtables.c):
- * if trace_vendor_ninet_ehashfn_enabled() then call trace_vendor_ninet_ehashfn function.
  */
-void vendor_ninet_ehashfn(void *data, const struct sock *sk, u32 *ret)
+void nip_ninet_ehashfn(const struct sock *sk, u32 *ret)
 {
-	*ret = ninet_ehashfn(sock_net(sk), &sk->sk_nip_rcv_saddr,
-			     sk->sk_num, &sk->sk_nip_daddr, sk->sk_dport);
+	*ret = ninet_ehashfn(sock_net(sk), &sk->SK_NIP_RCV_SADDR,
+			     sk->sk_num, &sk->SK_NIP_DADDR, sk->sk_dport);
 }
 
 /* call the newip hook function in inet_gifconf function (net\ipv4\devinet.c):
- * call the newip trace_vendor_ninet_gifconf function after the IPv4 process.
  */
-void vendor_ninet_gifconf(void *data, struct net_device *dev,
-			  char __user *buf, int len, int size, int *ret)
+void nip_ninet_gifconf(struct net_device *dev,
+		       char __user *buf, int len, int size, int *ret)
 {
 	if (*ret >= 0) {
 		int done = ninet_gifconf(dev, buf + *ret, len - *ret, size);
@@ -42,23 +43,28 @@ void vendor_ninet_gifconf(void *data, struct net_device *dev,
 	}
 }
 
-int ninet_hooks_register(void)
+void nip_ninet_ehashfn_lhck_register(void)
 {
-	int ret;
-
-	ret = register_trace_vendor_ninet_ehashfn(&vendor_ninet_ehashfn, NULL);
-	if (ret) {
-		nip_dbg("failed to register to vendor_ninet_ehashfn");
-		return -1;
-	}
-
-	ret = register_trace_vendor_ninet_gifconf(&vendor_ninet_gifconf, NULL);
-	if (ret) {
-		nip_dbg("failed to register to vendor_ninet_gifconf");
-		return -1;
-	}
-
-	return 0;
+	REGISTER_HCK_LITE_HOOK(nip_ninet_ehashfn_lhck, nip_ninet_ehashfn);
 }
+
+void nip_ninet_gifconf_lhck_register(void)
+{
+	REGISTER_HCK_LITE_HOOK(nip_ninet_gifconf_lhck, nip_ninet_gifconf);
+}
+
+void __init ninet_hooks_init(void)
+{
+	nip_ninet_ehashfn_lhck_register();
+	nip_ninet_gifconf_lhck_register();
+}
+
+void __exit ninet_hooks_exit(void)
+{
+}
+
+module_init(ninet_hooks_init);
+module_exit(ninet_hooks_exit);
+
 #endif /* CONFIG_NEWIP_HOOKS */
 

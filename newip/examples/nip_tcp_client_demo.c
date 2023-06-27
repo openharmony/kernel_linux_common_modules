@@ -119,16 +119,16 @@ int main(int argc, char **argv)
 	si_server.sin_family = AF_NINET;
 	si_server.sin_port = htons(TCP_SERVER_PORT);
 	// 2-byte address of the server: 0xDE00
-	si_server.sin_addr.nip_addr_field8[INDEX_0] = 0xDE;
-	si_server.sin_addr.nip_addr_field8[INDEX_1] = 0x00;
+	si_server.sin_addr.NIP_ADDR_FIELD8[INDEX_0] = 0xDE;
+	si_server.sin_addr.NIP_ADDR_FIELD8[INDEX_1] = 0x00;
 	si_server.sin_addr.bitlen = NIP_ADDR_BIT_LEN_16; // 2-byte: 16bit
 	if (connect(cfd, (struct sockaddr *)&si_server, sizeof(si_server)) < 0) {
 		perror("connect");
 		return -1;
 	}
 	printf("connect success, addr=0x%02x%02x, port=%d\n",
-	       si_server.sin_addr.nip_addr_field8[INDEX_0],
-	       si_server.sin_addr.nip_addr_field8[INDEX_1], TCP_SERVER_PORT);
+	       si_server.sin_addr.NIP_ADDR_FIELD8[INDEX_0],
+	       si_server.sin_addr.NIP_ADDR_FIELD8[INDEX_1], TCP_SERVER_PORT);
 
 	th_args.si_server = si_server;
 	th_args.si_server.sin_port = htons(TCP_SERVER_PORT);

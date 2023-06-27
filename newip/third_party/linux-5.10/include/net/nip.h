@@ -56,7 +56,7 @@ struct ninet_protocol {
 	unsigned int flags;
 };
 
-#define NIPCB(skb)  ((struct ninet_skb_parm *)&(TCP_SKB_CB(skb)->header.hnip))
+#define nipcb(skb)  ((struct ninet_skb_parm *)&(TCP_SKB_CB(skb)->header.hnip))
 
 extern const struct ninet_protocol __rcu *ninet_protos[MAX_INET_PROTOS];
 extern const struct proto_ops ninet_dgram_ops;

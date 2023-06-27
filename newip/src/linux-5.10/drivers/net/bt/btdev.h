@@ -172,7 +172,7 @@ static inline void bt_clear_bit(u32 *bitmap, u32 idx)
 		*bitmap &= ~(1 << idx);
 }
 
-#define SET_STATE(vn, st) bt_virnet_set_state(vn, st)
+#define set_state(vn, st) bt_virnet_set_state(vn, st)
 static inline void bt_virnet_set_state(struct bt_virnet *vn,
 				       enum bt_virnet_state state)
 {

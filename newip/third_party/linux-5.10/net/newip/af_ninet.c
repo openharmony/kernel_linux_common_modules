@@ -52,7 +52,6 @@
 #include <linux/netlink.h>
 
 #ifdef CONFIG_NEWIP_HOOKS
-#include <trace/hooks/inet.h>
 #include "nip_hooks_register.h"
 #endif
 #include "tcp_nip_parameter.h"
@@ -160,8 +159,8 @@ static int ninet_create(struct net *net, struct socket *sock, int protocol,
 	sk->sk_family = PF_NINET;
 	sk->sk_protocol = protocol;
 	sk->sk_backlog_rcv = answer->prot->backlog_rcv;
-	sk->sk_nip_daddr = nip_any_addr;
-	sk->sk_nip_rcv_saddr = nip_any_addr;
+	sk->SK_NIP_DADDR = nip_any_addr;
+	sk->SK_NIP_RCV_SADDR = nip_any_addr;
 
 	inet->uc_ttl = -1;
 	inet->mc_loop	= 1;
@@ -231,7 +230,7 @@ int ninet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		goto out;
 	}
 
-	sk->sk_nip_rcv_saddr = addr->sin_addr;
+	sk->SK_NIP_RCV_SADDR = addr->sin_addr;
 
 	/* make sure we are allowed to bind here */
 	if ((snum || !inet->bind_address_no_port) &&
@@ -320,10 +319,10 @@ int ninet_getname(struct socket *sock, struct sockaddr *uaddr,
 		    peer == 1)
 			return -ENOTCONN;
 		sin->sin_port = inet->inet_dport;
-		sin->sin_addr = sk->sk_nip_daddr;
+		sin->sin_addr = sk->SK_NIP_DADDR;
 	} else {
 		sin->sin_port = inet->inet_sport;
-		sin->sin_addr = sk->sk_nip_rcv_saddr;
+		sin->sin_addr = sk->SK_NIP_RCV_SADDR;
 	}
 	return sizeof(*sin);
 }
@@ -534,7 +533,7 @@ static int compat_select_ninet_ioctl(struct socket *sock, unsigned int cmd,
 static int __ninet_ioctl_cmd(struct socket *sock, unsigned int cmd,
 			     void __user *iov_base, __kernel_size_t iov_len)
 {
-	unsigned long arg = (unsigned long)(iov_base + NINET_IOCTL_HEAD_LEN);
+	unsigned long arg = (unsigned long)((char *)iov_base + NINET_IOCTL_HEAD_LEN);
 #ifdef CONFIG_COMPAT
 	int arglen = iov_len - NINET_IOCTL_HEAD_LEN;
 
@@ -803,11 +802,7 @@ static int __init ninet_init(void)
 	}
 
 #ifdef CONFIG_NEWIP_HOOKS
-	err = ninet_hooks_register();
-	if (err) {
-		nip_dbg("failed to register to nip hooks");
-		goto nip_packet_fail;
-	}
+	ninet_hooks_init();
 #endif
 	nip_dbg("init newip address family ok");
 

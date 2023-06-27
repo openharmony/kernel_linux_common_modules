@@ -111,18 +111,18 @@ static inline u32 nip_portaddr_hash(const struct net *net,
 				    const struct nip_addr *saddr,
 				    unsigned int port)
 {
-	u32 v = (__force u32)saddr->nip_addr_field32[0] ^ (__force u32)saddr->nip_addr_field32[1];
+	u32 v = (__force u32)saddr->NIP_ADDR_FIELD32[0] ^ (__force u32)saddr->NIP_ADDR_FIELD32[1];
 
 	return jhash_1word(v, net_hash_mix(net)) ^ port;
 }
 
 static u32 __nip_addr_jhash(const struct nip_addr *a, const u32 initval)
 {
-	u32 v = (__force u32)a->nip_addr_field32[0] ^ (__force u32)a->nip_addr_field32[1];
+	u32 v = (__force u32)a->NIP_ADDR_FIELD32[0] ^ (__force u32)a->NIP_ADDR_FIELD32[1];
 
 	return jhash_3words(v,
-			    (__force u32)a->nip_addr_field32[0],
-			    (__force u32)a->nip_addr_field32[1],
+			    (__force u32)a->NIP_ADDR_FIELD32[0],
+			    (__force u32)a->NIP_ADDR_FIELD32[1],
 			    initval);
 }
 
@@ -130,7 +130,7 @@ static struct inet_listen_hashbucket *
 ninet_lhash2_bucket_sk(struct inet_hashinfo *h, struct sock *sk)
 {
 	u32 hash = nip_portaddr_hash(sock_net(sk),
-					  &sk->sk_nip_rcv_saddr,
+					  &sk->SK_NIP_RCV_SADDR,
 					  inet_sk(sk)->inet_num);
 	return inet_lhash2_bucket(h, hash);
 }
@@ -173,7 +173,7 @@ u32 ninet_ehashfn(const struct net *net,
 	net_get_random_once(&ninet_hash_secret, sizeof(ninet_hash_secret));
 
 	/* Ipv6 uses S6_ADdr32 [3], the last 32bits of the address */
-	lhash = (__force u32)laddr->nip_addr_field32[0];
+	lhash = (__force u32)laddr->NIP_ADDR_FIELD32[0];
 	fhash = __nip_addr_jhash(faddr, ninet_hash_secret);
 
 	return __ninet_ehashfn(lhash, lport, fhash, fport,
@@ -321,14 +321,14 @@ begin:
 	sk_nulls_for_each_rcu(sk, node, &head->chain) {
 		if (sk->sk_hash != hash)
 			continue;
-		if (!NINET_MATCH(sk, net, saddr, daddr, ports, dif))
+		if (!ninet_match(sk, net, saddr, daddr, ports, dif))
 			continue;
 		if (unlikely(!refcount_inc_not_zero(&sk->sk_refcnt))) {
 			nip_dbg("sk->sk_refcnt == 0");
 			goto out;
 		}
 
-		if (unlikely(!NINET_MATCH(sk, net, saddr, daddr, ports, dif))) {
+		if (unlikely(!ninet_match(sk, net, saddr, daddr, ports, dif))) {
 			sock_gen_put(sk);
 			goto begin;
 		}
@@ -352,8 +352,8 @@ static inline int nip_tcp_compute_score(struct sock *sk, struct net *net,
 	if (inet_sk(sk)->inet_num == hnum && sk->sk_family == PF_NINET &&
 	    net_eq(sock_net(sk), net)) {
 		score = 1;
-		if (!nip_addr_eq(&sk->sk_nip_rcv_saddr, &nip_any_addr)) {
-			if (!nip_addr_eq(&sk->sk_nip_rcv_saddr, daddr))
+		if (!nip_addr_eq(&sk->SK_NIP_RCV_SADDR, &nip_any_addr)) {
+			if (!nip_addr_eq(&sk->SK_NIP_RCV_SADDR, daddr))
 				return -1;
 			score++;
 		}
@@ -448,9 +448,8 @@ static int __ninet_check_established(struct inet_timewait_death_row *death_row,
 {
 	struct inet_hashinfo *hinfo = death_row->hashinfo;
 	struct inet_sock *inet = inet_sk(sk);
-	struct nip_addr *daddr = &sk->sk_nip_rcv_saddr;
-	struct nip_addr *saddr = &sk->sk_nip_daddr;
-	int dif = sk->sk_bound_dev_if;
+	struct nip_addr *daddr = &sk->SK_NIP_RCV_SADDR;
+	struct nip_addr *saddr = &sk->SK_NIP_DADDR;
 	struct net *net = sock_net(sk);
 	const __portpair ports = INET_COMBINED_PORTS(inet->inet_dport, lport);
 	unsigned int hash = ninet_ehashfn(net, daddr, lport,
@@ -466,8 +465,8 @@ static int __ninet_check_established(struct inet_timewait_death_row *death_row,
 		if (sk2->sk_hash != hash)
 			continue;
 
-		if (likely(NINET_MATCH(sk2, net,
-				       saddr, daddr, ports, dif))) {
+		if (likely(ninet_match(sk2, net,
+				       saddr, daddr, ports, sk->sk_bound_dev_if))) {
 			nip_dbg("found same sk in ehash");
 			goto not_unique;
 		}
@@ -496,8 +495,8 @@ static u64 ninet_sk_port_offset(const struct sock *sk)
 {
 	const struct inet_sock *inet = inet_sk(sk);
 
-	return secure_newip_port_ephemeral(sk->sk_nip_rcv_saddr.nip_addr_field32,
-					  sk->sk_nip_daddr.nip_addr_field32,
+	return secure_newip_port_ephemeral(sk->SK_NIP_RCV_SADDR.NIP_ADDR_FIELD32,
+					  sk->SK_NIP_DADDR.NIP_ADDR_FIELD32,
 					  inet->inet_dport);
 }
 
