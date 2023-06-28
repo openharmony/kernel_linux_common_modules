@@ -171,16 +171,63 @@ static int get_elf64_code_segment(struct elf64_phdr *elf_phdr, struct elf_info *
 	return 0;
 }
 
-static int elf_check_and_get_code_segment_offset(struct file *file, struct elf_info *elf_info)
+static int get_elf32_info(struct elfhdr *elf_ehdr, struct elf_info *elf_info)
 {
 	struct elf32_hdr *elf32_ehdr;
-	struct elf64_hdr *elf64_ehdr;
 	uint32_t e32_phoff;
 	uint32_t e32_phsize;
+	uint16_t e_ehsize;
+
+	elf_info->type = ELFCLASS32;
+	elf32_ehdr = (struct elf32_hdr *)elf_ehdr;
+	e_ehsize = elf16_get_value(elf_ehdr, elf32_ehdr->e_ehsize);
+	if (e_ehsize != sizeof(struct elf32_hdr))
+		return -ENOEXEC;
+
+	elf_info->e_phnum = elf16_get_value(elf_ehdr, elf32_ehdr->e_phnum);
+	e32_phsize = sizeof(struct elf32_phdr) * elf_info->e_phnum;
+	if (e32_phsize == 0 || e32_phsize > ELF_PHNUM_MAX_SIZE)
+		return -ENOEXEC;
+
+	e32_phoff = elf32_get_value(elf_ehdr, elf32_ehdr->e_phoff);
+	if (e32_phoff + e32_phsize < e32_phoff)
+		return  -ENOEXEC;
+
+	elf_info->e_phsize = e32_phsize;
+	elf_info->e_phoff = e32_phoff;
+	return 0;
+}
+
+static int get_elf64_info(struct elfhdr *elf_ehdr, struct elf_info *elf_info)
+{
+	struct elf64_hdr *elf64_ehdr;
 	uint64_t e64_phoff;
 	uint64_t e64_phsize;
-	uint16_t type;
 	uint16_t e_ehsize;
+
+	elf_info->type = ELFCLASS64;
+	elf64_ehdr = (struct elf64_hdr *)elf_ehdr;
+	e_ehsize = elf16_get_value(elf_ehdr, elf64_ehdr->e_ehsize);
+	if (e_ehsize != sizeof(struct elf64_hdr))
+		return -ENOEXEC;
+
+	elf_info->e_phnum = elf16_get_value(elf_ehdr, elf64_ehdr->e_phnum);
+	e64_phsize = sizeof(struct elf64_phdr) * elf_info->e_phnum;
+	if (e64_phsize == 0 || e64_phsize > ELF_PHNUM_MAX_SIZE)
+		return -ENOEXEC;
+
+	e64_phoff = elf64_get_value(elf_ehdr, elf64_ehdr->e_phoff);
+	if (e64_phoff + e64_phsize < e64_phoff)
+		return  -ENOEXEC;
+
+	elf_info->e_phsize = e64_phsize;
+	elf_info->e_phoff = e64_phoff;
+	return 0;
+}
+
+static int elf_check_and_get_code_segment_offset(struct file *file, struct elf_info *elf_info)
+{
+	uint16_t type;
 	struct elfhdr *elf_ehdr = &elf_info->elf_ehdr;
 	int ret;
 
@@ -195,46 +242,13 @@ static int elf_check_and_get_code_segment_offset(struct file *file, struct elf_i
 	if (type != ET_EXEC && type != ET_DYN)
 		return -ENOEXEC;
 
-	if (elf_ehdr->e_ident[EI_CLASS] == ELFCLASS32) {
-		elf_info->type = ELFCLASS32;
-		elf32_ehdr = (struct elf32_hdr *)elf_ehdr;
-		e_ehsize = elf16_get_value(elf_ehdr, elf32_ehdr->e_ehsize);
-		if (e_ehsize != sizeof(struct elf32_hdr))
-			return -ENOEXEC;
+	if (elf_ehdr->e_ident[EI_CLASS] == ELFCLASS32)
+		return get_elf32_info(elf_ehdr, elf_info);
 
-		elf_info->e_phnum = elf16_get_value(elf_ehdr, elf32_ehdr->e_phnum);
-		e32_phsize = sizeof(struct elf32_phdr) * elf_info->e_phnum;
-		if (e32_phsize == 0 || e32_phsize > ELF_PHNUM_MAX_SIZE)
-			return -ENOEXEC;
+	if (elf_ehdr->e_ident[EI_CLASS] == ELFCLASS64)
+		return get_elf64_info(elf_ehdr, elf_info);
 
-		e32_phoff = elf32_get_value(elf_ehdr, elf32_ehdr->e_phoff);
-		if (e32_phoff + e32_phsize < e32_phoff)
-			return  -ENOEXEC;
-
-		elf_info->e_phsize = e32_phsize;
-		elf_info->e_phoff = e32_phoff;
-	} else if (elf_ehdr->e_ident[EI_CLASS] == ELFCLASS64) {
-		elf_info->type = ELFCLASS64;
-		elf64_ehdr = (struct elf64_hdr *)elf_ehdr;
-		e_ehsize = elf16_get_value(elf_ehdr, elf64_ehdr->e_ehsize);
-		if (e_ehsize != sizeof(struct elf64_hdr))
-			return -ENOEXEC;
-
-		elf_info->e_phnum = elf16_get_value(elf_ehdr, elf64_ehdr->e_phnum);
-		e64_phsize = sizeof(struct elf64_phdr) * elf_info->e_phnum;
-		if (e64_phsize == 0 || e64_phsize > ELF_PHNUM_MAX_SIZE)
-			return -ENOEXEC;
-
-		e64_phoff = elf64_get_value(elf_ehdr, elf64_ehdr->e_phoff);
-		if (e64_phoff + e64_phsize < e64_phoff)
-			return  -ENOEXEC;
-
-		elf_info->e_phsize = e64_phsize;
-		elf_info->e_phoff = e64_phoff;
-	} else
-		return -ENOEXEC;
-
-	return 0;
+	return -ENOEXEC;
 }
 
 static int find_elf_code_segment_info(const char *phdr_info, struct elf_info *elf_info,
