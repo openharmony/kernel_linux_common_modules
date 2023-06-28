@@ -6,8 +6,7 @@
 #ifndef _XPM_HCK_H
 #define _XPM_HCK_H
 
-#define XPM_PERMISSIVE_MODE 0
-#define XPM_ENFORCE_MODE 1
+void set_xpm_mode(uint8_t mode);
 
 void xpm_register_xpm_hooks(void);
 
