@@ -21,6 +21,12 @@ static DEFINE_RWLOCK(fs_verity_tree_lock);
 static struct rb_root fs_verity_tree = RB_ROOT;
 static int fs_verity_node_count;
 
+struct verity_info {
+	struct rb_root *root;
+	rwlock_t *lock;
+	int *node_count;
+};
+
 static int check_exec_file_is_verity(struct file *file)
 {
 	return FILE_SIGNATURE_DM_VERITY;
@@ -164,10 +170,9 @@ static void test_print_elf_code_segment_info(struct file *file, const struct exe
 	if (IS_ERR(ret_path))
 		return;
 
-	for (i = 0; i < file_info->code_segment_count; i++) {
+	for (i = 0; i < file_info->code_segment_count; i++)
 		pr_info("[exec signature segment] %s -> offset: 0x%llx size: 0x%lx\n",
 			ret_path, file_info->code_segments->file_offset, file_info->code_segments->size);
-	}
 
 	code_segment_test_count = 100;
 }
@@ -194,41 +199,71 @@ static void rm_code_segment_info(void)
 	write_unlock(&fs_verity_tree_lock);
 }
 
+static int get_verity_info(int type, struct verity_info *verity)
+{
+	if (type == FILE_SIGNATURE_DM_VERITY) {
+		verity->root = &dm_verity_tree;
+		verity->lock = &dm_verity_tree_lock;
+		verity->node_count = &dm_verity_node_count;
+		return 0;
+	}
+
+	if (type == FILE_SIGNATURE_FS_VERITY) {
+		verity->lock = &fs_verity_tree_lock;
+		verity->root = &fs_verity_tree;
+		verity->node_count = &fs_verity_node_count;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static void insert_new_signature_info(struct inode *file_node, int type,
+	struct verity_info *verity, struct exec_file_signature_info *new_info, struct exec_file_signature_info **old_info)
+{
+	new_info->type = type;
+	new_info->inode = (uintptr_t)file_node;
+	RB_CLEAR_NODE(&new_info->rb_node);
+	if ((*old_info) != NULL) {
+		write_lock(verity->lock);
+		rb_erase_node(verity->root, verity->node_count, *old_info);
+		(*old_info)->type |= FILE_SIGNATURE_DELETE;
+		write_unlock(verity->lock);
+		if (atomic_sub_return(1, &(*old_info)->reference) <= 0) {
+			kfree(*old_info);
+			*old_info = NULL;
+		}
+	}
+
+	write_lock(verity->lock);
+	*old_info = rb_add_node(verity->root, verity->node_count, new_info);
+	write_unlock(verity->lock);
+}
+
 static int get_elf_code_segment_info(struct file *file, bool is_exec, int type,
 	struct exec_file_signature_info **code_segment_info)
 {
 	int ret;
-	struct rb_root *root;
-	rwlock_t *verity_lock;
-	int *node_count;
+	struct verity_info verity;
 	struct inode *file_node;
 	struct exec_file_signature_info *new_info;
-	struct exec_file_signature_info *tmp_info;
+	struct exec_file_signature_info *old_info;
 
-	if (type == FILE_SIGNATURE_DM_VERITY) {
-		root = &dm_verity_tree;
-		verity_lock = &dm_verity_tree_lock;
-		node_count = &dm_verity_node_count;
-	} else if (type == FILE_SIGNATURE_FS_VERITY) {
-		verity_lock = &fs_verity_tree_lock;
-		root = &fs_verity_tree;
-		node_count = &fs_verity_node_count;
-	} else {
+	if (get_verity_info(type, &verity) < 0)
 		return -EINVAL;
-	}
 
 	file_node = file_inode(file);
 	if (file_node == NULL)
 		return -EINVAL;
 
-	read_lock(verity_lock);
-	tmp_info = rb_search_node(root, (uintptr_t)file_node);
-	read_unlock(verity_lock);
-	if (tmp_info != NULL) {
-		if (is_exec && tmp_info->code_segments == NULL)
+	read_lock(verity.lock);
+	old_info = rb_search_node(verity.root, (uintptr_t)file_node);
+	read_unlock(verity.lock);
+	if (old_info != NULL) {
+		if (is_exec && old_info->code_segments == NULL)
 			goto need_parse;
 
-		*code_segment_info = tmp_info;
+		*code_segment_info = old_info;
 		return 0;
 	}
 
@@ -248,24 +283,10 @@ need_parse:
 #endif
 	}
 
-	new_info->type = type;
-	new_info->inode = (uintptr_t)file_node;
-	RB_CLEAR_NODE(&new_info->rb_node);
-	if (tmp_info != NULL) {
-		write_lock(verity_lock);
-		rb_erase_node(root, node_count, tmp_info);
-		tmp_info->type |= FILE_SIGNATURE_DELETE;
-		write_unlock(verity_lock);
-		if (atomic_sub_return(1, &tmp_info->reference) <= 0)
-			kfree(tmp_info);
-	}
-
-	write_lock(verity_lock);
-	tmp_info = rb_add_node(root, node_count, new_info);
-	write_unlock(verity_lock);
-	if (tmp_info != NULL) {
+	insert_new_signature_info(file_node, type, &verity, new_info, &old_info);
+	if (old_info != NULL) {
 		kfree(new_info);
-		new_info = tmp_info;
+		new_info = old_info;
 	}
 	*code_segment_info = new_info;
 	return 0;
