@@ -8,6 +8,7 @@
 #ifdef CONFIG_SECURITY_XPM_DEBUG
 int xpm_debugfs_init(void);
 void xpm_debugfs_exit(void);
+bool xpm_is_permissve_mode(void);
 
 #else
 static inline int xpm_debugfs_init(void)
@@ -17,6 +18,11 @@ static inline int xpm_debugfs_init(void)
 
 static inline void xpm_debugfs_exit(void)
 {
+}
+
+static inline bool xpm_is_permissve_mode(void)
+{
+	return true;
 }
 #endif
 
