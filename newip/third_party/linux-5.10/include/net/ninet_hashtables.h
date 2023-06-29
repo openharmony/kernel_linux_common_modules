@@ -90,16 +90,16 @@ static inline struct sock *__ninet_lookup_skb(struct inet_hashinfo *hashinfo,
 		return sk;
 
 	return __ninet_lookup(dev_net(skb->dev), hashinfo, skb,
-			      doff, &(NIPCB(skb)->srcaddr), sport,
-			      &(NIPCB(skb)->dstaddr), ntohs(dport),
+			      doff, &(nipcb(skb)->srcaddr), sport,
+			      &(nipcb(skb)->dstaddr), ntohs(dport),
 			      iif, refcounted);
 }
 
-#define NINET_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
+#define ninet_match(__sk, __net, __saddr, __daddr, __ports, __dif)	\
 	(((__sk)->sk_portpair == (__ports))			&&	\
 	 ((__sk)->sk_family == AF_NINET)			&&	\
-	 nip_addr_eq(&(__sk)->sk_nip_daddr, (__saddr))		&&	\
-	 nip_addr_eq(&(__sk)->sk_nip_rcv_saddr, (__daddr))	&&	\
+	 nip_addr_eq(&(__sk)->SK_NIP_DADDR, (__saddr))		&&	\
+	 nip_addr_eq(&(__sk)->SK_NIP_RCV_SADDR, (__daddr))	&&	\
 	 (!(__sk)->sk_bound_dev_if	||              \
 	   ((__sk)->sk_bound_dev_if == (__dif)))	&&	\
 	 net_eq(sock_net(__sk), (__net)))

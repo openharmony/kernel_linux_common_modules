@@ -77,7 +77,7 @@ int nip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 	skb->dev = dev;
 
 	/* prepare to build ethernet header */
-	nexthop = nip_nexthop((struct nip_rt_info *)dst, &NIPCB(skb)->dstaddr);
+	nexthop = nip_nexthop((struct nip_rt_info *)dst, &nipcb(skb)->dstaddr);
 
 	rcu_read_lock_bh();
 
@@ -134,8 +134,8 @@ unsigned short nip_get_output_checksum(struct sk_buff *skb,
 	unsigned short check_len = head->trans_hdr_len + head->usr_data_len;
 
 	nph.nexthdr = IPPROTO_UDP;
-	nph.saddr = NIPCB(skb)->srcaddr;
-	nph.daddr = NIPCB(skb)->dstaddr;
+	nph.saddr = nipcb(skb)->srcaddr;
+	nph.daddr = nipcb(skb)->dstaddr;
 	nph.check_len = htons(check_len);
 	return nip_check_sum_build(udp_hdr, check_len, &nph);
 }
@@ -165,7 +165,7 @@ static struct sk_buff *_nip_alloc_skb(struct sock *sk,
 	dst_hold(dst);
 	nip_dbg("malloc_len=%d, dst->__refcnt=%u", len, atomic_read(&dst->__refcnt));
 	skb_dst_set(skb, dst);
-	memset(NIPCB(skb), 0, sizeof(struct ninet_skb_parm));
+	memset(nipcb(skb), 0, sizeof(struct ninet_skb_parm));
 
 	return skb;
 }
@@ -196,9 +196,9 @@ static int _nip_udp_single_output(struct sock *sk,
 	head->hdr_buf = skb->data;
 	nip_hdr_udp_encap(head);
 	skb_reserve(skb, head->hdr_buf_pos);
-	NIPCB(skb)->dstaddr = head->daddr;
-	NIPCB(skb)->srcaddr = head->saddr;
-	NIPCB(skb)->nexthdr = IPPROTO_UDP;
+	nipcb(skb)->dstaddr = head->daddr;
+	nipcb(skb)->srcaddr = head->saddr;
+	nipcb(skb)->nexthdr = IPPROTO_UDP;
 
 	/* Fill in the Transport Layer Header (UDP) */
 	skb_reset_transport_header(skb);
@@ -292,7 +292,7 @@ static int nip_sk_dst_check(struct dst_entry *dst,
 	if (!dst)
 		goto out;
 
-	if (fln->flowin_oif && fln->flowin_oif != dst->dev->ifindex)
+	if (fln->FLOWIN_OIF && fln->FLOWIN_OIF != dst->dev->ifindex)
 		err = -EPERM;
 
 out:
@@ -385,8 +385,8 @@ int tcp_nip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
 	skb->protocol = htons(ETH_P_NEWIP);
 	skb->ip_summed = CHECKSUM_NONE;
 	skb->csum = 0;
-	saddr = &sk->sk_nip_rcv_saddr;
-	daddr = &sk->sk_nip_daddr;
+	saddr = &sk->SK_NIP_RCV_SADDR;
+	daddr = &sk->SK_NIP_DADDR;
 
 	head.saddr = *saddr;
 	head.daddr = *daddr;
@@ -397,7 +397,7 @@ int tcp_nip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
 	head.total_len = head.hdr_buf_pos + skb->len;
 	nip_update_total_len(&head, htons(head.total_len));
 
-	fln.daddr = sk->sk_nip_daddr;
+	fln.daddr = sk->SK_NIP_DADDR;
 	dst = __sk_dst_check(sk, 0);
 	if (!dst) {
 		nip_dbg("no dst cache for sk, search newip rt");
@@ -417,9 +417,9 @@ int tcp_nip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
 	memcpy(skb->data, head.hdr_buf, head.hdr_buf_pos);
 
 	skb_reset_network_header(skb);
-	NIPCB(skb)->srcaddr = *saddr;
-	NIPCB(skb)->dstaddr = *daddr;
-	NIPCB(skb)->nexthdr = head.nexthdr;
+	nipcb(skb)->srcaddr = *saddr;
+	nipcb(skb)->dstaddr = *daddr;
+	nipcb(skb)->nexthdr = head.nexthdr;
 
 	skb->priority = sk->sk_priority;
 	head.total_len = skb->len;
@@ -471,8 +471,8 @@ void tcp_nip_actual_send_reset(struct sock *sk, struct sk_buff *skb, u32 seq,
 	skb_reserve(buff, MAX_TCP_HEADER);
 
 	buff->sk = sk; // sk could be NULL
-	saddr = &(NIPCB(skb)->dstaddr);
-	daddr = &(NIPCB(skb)->srcaddr);
+	saddr = &(nipcb(skb)->dstaddr);
+	daddr = &(nipcb(skb)->srcaddr);
 
 	/* Fill in tcp header */
 	t1 = skb_push(buff, sizeof(struct tcphdr));
@@ -520,9 +520,9 @@ void tcp_nip_actual_send_reset(struct sock *sk, struct sk_buff *skb, u32 seq,
 	memcpy(buff->data, head.hdr_buf, head.hdr_buf_pos);
 
 	skb_reset_network_header(buff);
-	NIPCB(buff)->srcaddr = *saddr;
-	NIPCB(buff)->dstaddr = *daddr;
-	NIPCB(buff)->nexthdr = head.nexthdr;
+	nipcb(buff)->srcaddr = *saddr;
+	nipcb(buff)->dstaddr = *daddr;
+	nipcb(buff)->nexthdr = head.nexthdr;
 
 	buff->priority = priority;
 	head.total_len = buff->len;

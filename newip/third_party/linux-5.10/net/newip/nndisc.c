@@ -237,9 +237,9 @@ bool nip_get_nndisc_rcv_checksum(struct sk_buff *skb,
 	struct nip_pseudo_header nph = {0};
 	unsigned short check_len = (unsigned short)(transport_tail - (skb_transport_header(skb)));
 
-	nph.nexthdr = NIPCB(skb)->nexthdr;
-	nph.saddr = NIPCB(skb)->srcaddr;
-	nph.daddr = NIPCB(skb)->dstaddr;
+	nph.nexthdr = nipcb(skb)->nexthdr;
+	nph.saddr = nipcb(skb)->srcaddr;
+	nph.daddr = nipcb(skb)->dstaddr;
 	nph.check_len = htons(check_len);
 
 	return nip_check_sum_parse(skb_transport_header(skb), check_len, &nph)
@@ -327,11 +327,11 @@ static struct sk_buff *nndisc_alloc_skb(struct net_device *dev,
 	skb->ip_summed = CHECKSUM_NONE;
 	skb->csum = 0;
 	skb->dev = dev;
-	memset(NIPCB(skb), 0, sizeof(struct ninet_skb_parm));
+	memset(nipcb(skb), 0, sizeof(struct ninet_skb_parm));
 
-	NIPCB(skb)->dstaddr = head->daddr;
-	NIPCB(skb)->srcaddr = head->saddr;
-	NIPCB(skb)->nexthdr = head->nexthdr;
+	nipcb(skb)->dstaddr = head->daddr;
+	nipcb(skb)->srcaddr = head->saddr;
+	nipcb(skb)->nexthdr = head->nexthdr;
 	/* reserve space for hardware header */
 	skb_reserve(skb, NIP_ETH_HDR_LEN);
 	skb_reset_network_header(skb);
@@ -523,13 +523,13 @@ int nndisc_rcv_ns(struct sk_buff *skb)
 		goto out;
 	}
 
-	neigh = __neigh_lookup(&nnd_tbl, &NIPCB(skb)->srcaddr, dev, lladdr || !dev->addr_len);
+	neigh = __neigh_lookup(&nnd_tbl, &nipcb(skb)->srcaddr, dev, lladdr || !dev->addr_len);
 	if (neigh) {
 		neigh_update(neigh, lladdr, NUD_STALE, NEIGH_UPDATE_F_OVERRIDE, 0);
 		neigh_release(neigh);
 	}
 
-	nndisc_send_na(dev, &NIPCB(skb)->srcaddr, &addr);
+	nndisc_send_na(dev, &nipcb(skb)->srcaddr, &addr);
 out:
 	kfree_skb(skb);
 	return err;
@@ -555,7 +555,7 @@ int nndisc_rcv_na(struct sk_buff *skb)
 		return 0;
 	}
 
-	neigh = neigh_lookup(&nnd_tbl, &NIPCB(skb)->srcaddr, dev);
+	neigh = neigh_lookup(&nnd_tbl, &nipcb(skb)->srcaddr, dev);
 	if (neigh) {
 		neigh_update(neigh, lladdr, NUD_REACHABLE, NEIGH_UPDATE_F_OVERRIDE, 0);
 		neigh_release(neigh);

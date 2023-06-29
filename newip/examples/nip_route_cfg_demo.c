@@ -41,11 +41,11 @@ int nip_route_add(int ifindex, const unsigned char *dst_addr, uint8_t dst_addr_l
 	rt.rtmsg_ifindex = ifindex;
 	rt.rtmsg_flags = RTF_UP;
 	rt.rtmsg_dst.bitlen = dst_addr_len * BITS_PER_BYTE;
-	memcpy(rt.rtmsg_dst.nip_addr_field8, dst_addr, dst_addr_len);
+	memcpy(rt.rtmsg_dst.NIP_ADDR_FIELD8, dst_addr, dst_addr_len);
 
 	if (gateway_addr) {
 		rt.rtmsg_gateway.bitlen = gateway_addr_len * BITS_PER_BYTE;
-		memcpy(rt.rtmsg_gateway.nip_addr_field8, gateway_addr, gateway_addr_len);
+		memcpy(rt.rtmsg_gateway.NIP_ADDR_FIELD8, gateway_addr, gateway_addr_len);
 		rt.rtmsg_flags |= RTF_GATEWAY;
 	}
 

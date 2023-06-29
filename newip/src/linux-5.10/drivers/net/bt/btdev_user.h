@@ -13,14 +13,14 @@
 #define BT_DEV_NAME_PREFIX "btdev"
 #define BT_DEV_PATH_PREFIX "/dev/" BT_DEV_NAME_PREFIX
 
-#define BT_DEV_PATH(idx) (BT_DEV_PATH_PREFIX#idx)
-#define BT_DEV_NAME(idx) (BT_DEV_NAME_PREFIX#idx)
+#define bt_dev_path(idx) (BT_DEV_PATH_PREFIX#idx)
+#define bt_dev_name(idx) (BT_DEV_NAME_PREFIX#idx)
 
-#define BT_DEV_NAME_MNG_FILE BT_DEV_NAME(0)
-#define BT_DEV_PATH_MNG_FILE BT_DEV_PATH(0)
-#define BT_DEV_NAME_IO_FILE(idx) BT_DEV_NAME(idx)
-#define BT_DEV_PATH_IO_FILE(idx) BT_DEV_PATH(idx)
-#define BT_VIRNET_NAME(idx) (BT_VIRNET_NAME_PREFIX#idx)
+#define BT_DEV_NAME_MNG_FILE bt_dev_name(0)
+#define BT_DEV_PATH_MNG_FILE bt_dev_path(0)
+#define bt_dev_name_to_file(idx) bt_dev_name(idx)
+#define bt_dev_path_to_file(idx) bt_dev_path(idx)
+#define bt_virnet_name(idx) (BT_VIRNET_NAME_PREFIX#idx)
 
 #define BT_PATHNAME_MAX 256
 #define BT_VIRNET_MAX_NUM 16

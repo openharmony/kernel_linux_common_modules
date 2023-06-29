@@ -42,7 +42,7 @@ void _check_nip_enable(void)
 	g_nip_enable = atoi(tmp) ? 0 : 1;
 }
 
-bool check_nip_enable(void)
+int check_nip_enable(void)
 {
 	if (g_nip_enable == NIP_ENABLE_INVALID) {
 		_check_nip_enable();

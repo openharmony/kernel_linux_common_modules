@@ -13,7 +13,7 @@
 #define _NIP_HOOKS_REGISTER_H
 
 #ifdef CONFIG_NEWIP_HOOKS
-int ninet_hooks_register(void);
+void __init ninet_hooks_init(void);
 #endif
 
 #endif /* _NIP_HOOKS_REGISTER_H */
