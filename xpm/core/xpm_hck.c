@@ -16,13 +16,12 @@
 #include "xpm_hck.h"
 #include "xpm_log.h"
 #include "xpm_report.h"
+#include "xpm_debugfs.h"
 #include "exec_signature_info.h"
-
-uint8_t xpm_mode = XPM_PERMISSIVE_MODE;
 
 static int xpm_value(int value)
 {
-	return (xpm_mode == XPM_PERMISSIVE_MODE ? 0 : value);
+	return xpm_is_permissve_mode() ? 0 : value;
 }
 
 static bool xpm_is_anonymous_vma(struct vm_area_struct *vma)
@@ -78,7 +77,6 @@ static int xpm_check_code_segment(bool is_exec, struct vm_area_struct *vma,
 		seg_addr_start = ALIGN_DOWN(segments[i].file_offset, PAGE_SIZE);
 		seg_addr_end = PAGE_ALIGN(segments[i].file_offset +
 			segments[i].size);
-
 		if ((vm_addr_start >= seg_addr_start) &&
 			(vm_addr_end <= seg_addr_end))
 			return 0;
@@ -90,10 +88,11 @@ static int xpm_check_code_segment(bool is_exec, struct vm_area_struct *vma,
 static int xpm_check_signature(struct vm_area_struct *vma, unsigned long prot)
 {
 	int ret;
+	bool is_exec;
 	struct exec_file_signature_info *info = NULL;
-	bool is_exec = !xpm_is_anonymous_vma(vma) && (prot & PROT_EXEC);
 
 	/* vma is non-executable or mmap in xpm region just return */
+	is_exec = !xpm_is_anonymous_vma(vma) && (prot & PROT_EXEC);
 	if (!((vma->vm_flags & VM_XPM) || is_exec))
 		return 0;
 
@@ -126,8 +125,9 @@ exit:
 static int xpm_check_prot(struct vm_area_struct *vma, unsigned long prot)
 {
 	int ret;
-	bool is_anon = xpm_is_anonymous_vma(vma);
+	bool is_anon;
 
+	is_anon = xpm_is_anonymous_vma(vma);
 	if ((vma->vm_flags & VM_XPM) && (is_anon || (prot & PROT_WRITE) ||
 		(prot & PROT_EXEC))) {
 		xpm_log_error("xpm region mmap not allow anonymous/exec/write permission");
@@ -337,7 +337,7 @@ void xpm_register_hck_hooks(void)
 	REGISTER_HCK_LITE_HOOK(xpm_get_unmapped_area_lhck,
 		xpm_get_unmapped_area);
 
-	/* xpm integrity*/
+	/* xpm integrity */
 	REGISTER_HCK_LITE_HOOK(xpm_integrity_equal_lhck, xpm_integrity_equal);
 	REGISTER_HCK_LITE_HOOK(xpm_integrity_check_lhck, xpm_integrity_check);
 	REGISTER_HCK_LITE_HOOK(xpm_integrity_update_lhck, xpm_integrity_update);
