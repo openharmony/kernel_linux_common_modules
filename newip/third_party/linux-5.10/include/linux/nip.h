@@ -39,12 +39,12 @@
 #define ETH_P_NEWIP  0xEADD  /* NIP */
 
 /* struct sock_common __sk_common */
-#define sk_nip_daddr     __sk_common.nip_daddr
-#define sk_nip_rcv_saddr __sk_common.nip_rcv_saddr
+#define SK_NIP_DADDR     __sk_common.nip_daddr
+#define SK_NIP_RCV_SADDR __sk_common.nip_rcv_saddr
 
 /* struct request_sock req */
-#define ir_nip_rmt_addr req.__req_common.nip_daddr
-#define ir_nip_loc_addr req.__req_common.nip_rcv_saddr
+#define IR_NIP_RMT_ADDR req.__req_common.nip_daddr
+#define IR_NIP_LOC_ADDR req.__req_common.nip_rcv_saddr
 
 struct nip_devconf {
 	__s32 forwarding;

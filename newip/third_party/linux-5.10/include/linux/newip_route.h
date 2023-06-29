@@ -2,7 +2,7 @@
 /*
  * Based on include/uapi/linux/ipv6_route.h
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>	
+ *	Pedro Roque		<roque@di.fc.ul.pt>
  *
  * Linux NewIP INET implementation
  *

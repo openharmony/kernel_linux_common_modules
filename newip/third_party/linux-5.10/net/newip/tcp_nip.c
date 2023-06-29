@@ -402,7 +402,7 @@
 #include "nip_checksum.h"
 #include "tcp_nip_parameter.h"
 
-#define TCP_HEADER_LENGTH(th) ((th)->doff << 2)
+#define tcp_header_length(th) ((th)->doff << 2)
 #define TCP_ACK_NUM_MULTIPLIER      20
 #define TCP_WINDOW_RAISE_THRESHOLD  2
 #define TCP_BACKLOG_HEADROOM        (64 * 1024)
@@ -437,9 +437,9 @@ bool nip_get_tcp_input_checksum(struct sk_buff *skb)
 {
 	struct nip_pseudo_header nph = {0};
 
-	nph.nexthdr = NIPCB(skb)->nexthdr;
-	nph.saddr = NIPCB(skb)->srcaddr;
-	nph.daddr = NIPCB(skb)->dstaddr;
+	nph.nexthdr = nipcb(skb)->nexthdr;
+	nph.saddr = nipcb(skb)->srcaddr;
+	nph.daddr = nipcb(skb)->dstaddr;
 
 	nph.check_len = htons(skb->len);
 	return nip_check_sum_parse(skb_transport_header(skb),
@@ -583,8 +583,8 @@ static void tcp_nip_init_req(struct request_sock *req,
 {
 	struct inet_request_sock *ireq = inet_rsk(req);
 
-	ireq->ir_nip_rmt_addr = NIPCB(skb)->srcaddr;
-	ireq->ir_nip_loc_addr = NIPCB(skb)->dstaddr;
+	ireq->IR_NIP_RMT_ADDR = nipcb(skb)->srcaddr;
+	ireq->IR_NIP_LOC_ADDR = nipcb(skb)->dstaddr;
 }
 
 /* Function
@@ -596,8 +596,8 @@ static void tcp_nip_init_req(struct request_sock *req,
  */
 static __u32 tcp_nip_init_sequence(const struct sk_buff *skb)
 {
-	return secure_tcp_nip_sequence_number(NIPCB(skb)->dstaddr.nip_addr_field32,
-					    NIPCB(skb)->srcaddr.nip_addr_field32,
+	return secure_tcp_nip_sequence_number(nipcb(skb)->dstaddr.NIP_ADDR_FIELD32,
+					    nipcb(skb)->srcaddr.NIP_ADDR_FIELD32,
 					    tcp_hdr(skb)->dest,
 					    tcp_hdr(skb)->source);
 }
@@ -610,7 +610,7 @@ static struct dst_entry *tcp_nip_route_req(const struct sock *sk,
 	struct inet_request_sock *ireq = inet_rsk(req);
 	struct flow_nip fln;
 
-	fln.daddr = ireq->ir_nip_rmt_addr;
+	fln.daddr = ireq->IR_NIP_RMT_ADDR;
 	dst = nip_route_output(sock_net(sk), sk, &fln);
 	return dst;
 }
@@ -653,7 +653,7 @@ static int tcp_nip_connect(struct sock *sk, struct sockaddr *uaddr,
 
 	/* Find the route and obtain the source address */
 	nip_dbg("sk->sk_bound_dev_if is %d", sk->sk_bound_dev_if);
-	fln.flowin_oif = sk->sk_bound_dev_if;
+	fln.FLOWIN_OIF = sk->sk_bound_dev_if;
 	dst = nip_dst_lookup_flow(sock_net(sk), sk, &fln, NULL);
 	if (IS_ERR(dst)) {
 		nip_dbg("cannot find dst");
@@ -661,10 +661,10 @@ static int tcp_nip_connect(struct sock *sk, struct sockaddr *uaddr,
 		goto failure;
 	}
 
-	/* find the actual source addr for sk->sk_nip_rcv_saddr */
-	if (nip_addr_eq(&sk->sk_nip_rcv_saddr, &nip_any_addr))
-		sk->sk_nip_rcv_saddr = fln.saddr;
-	fln.saddr = sk->sk_nip_rcv_saddr;
+	/* find the actual source addr for sk->SK_NIP_RCV_SADDR */
+	if (nip_addr_eq(&sk->SK_NIP_RCV_SADDR, &nip_any_addr))
+		sk->SK_NIP_RCV_SADDR = fln.saddr;
+	fln.saddr = sk->SK_NIP_RCV_SADDR;
 
 	if (nip_addr_invalid(&fln.daddr)) {
 		nip_dbg("nip daddr invalid, bitlen=%u", fln.daddr.bitlen);
@@ -680,7 +680,7 @@ static int tcp_nip_connect(struct sock *sk, struct sockaddr *uaddr,
 
 	/* The destination address and port are set to the transport control block */
 	inet->inet_dport = usin->sin_port;
-	sk->sk_nip_daddr = usin->sin_addr;
+	sk->SK_NIP_DADDR = usin->sin_addr;
 
 	inet_csk(sk)->icsk_ext_hdr_len = 0;
 	if (inet_opt)
@@ -707,8 +707,8 @@ static int tcp_nip_connect(struct sock *sk, struct sockaddr *uaddr,
 
 	if (!tp->write_seq)
 		tp->write_seq =
-		secure_tcp_nip_sequence_number(sk->sk_nip_rcv_saddr.nip_addr_field32,
-					       sk->sk_nip_daddr.nip_addr_field32,
+		secure_tcp_nip_sequence_number(sk->SK_NIP_RCV_SADDR.NIP_ADDR_FIELD32,
+					       sk->SK_NIP_DADDR.NIP_ADDR_FIELD32,
 					       inet->inet_sport,
 					       usin->sin_port);
 
@@ -746,7 +746,7 @@ static void tcp_nip_send_reset(struct sock *sk, struct sk_buff *skb)
 		seq = ntohl(th->ack_seq);
 	else
 		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
-			  TCP_HEADER_LENGTH(th);
+			  tcp_header_length(th);
 
 	tcp_nip_actual_send_reset(sk, skb, seq, ack_seq, 0, 1, priority);
 }
@@ -870,7 +870,7 @@ static struct sock *tcp_nip_syn_recv_sock(const struct sock *sk, struct sk_buff 
 	if (sk_acceptq_is_full(sk))
 		goto out_overflow;
 
-	fln.daddr = ireq->ir_nip_rmt_addr;
+	fln.daddr = ireq->IR_NIP_RMT_ADDR;
 	if (!dst) {
 		dst = nip_route_output(sock_net(sk), sk, &fln);
 		if (!dst)
@@ -890,8 +890,8 @@ static struct sock *tcp_nip_syn_recv_sock(const struct sock *sk, struct sk_buff 
 	newtp = tcp_sk(newsk);
 	newinet = inet_sk(newsk);
 
-	newsk->sk_nip_daddr = ireq->ir_nip_rmt_addr;
-	newsk->sk_nip_rcv_saddr = ireq->ir_nip_loc_addr;
+	newsk->SK_NIP_DADDR = ireq->IR_NIP_RMT_ADDR;
+	newsk->SK_NIP_RCV_SADDR = ireq->IR_NIP_LOC_ADDR;
 
 	newinet->inet_opt = NULL;
 
@@ -1842,8 +1842,8 @@ static void tcp_nip_early_demux(struct sk_buff *skb)
 		return;
 
 	sk = __ninet_lookup_established(dev_net(skb->dev), &tcp_hashinfo,
-					&NIPCB(skb)->srcaddr, th->source,
-					&NIPCB(skb)->dstaddr, ntohs(th->dest), skb->skb_iif);
+					&nipcb(skb)->srcaddr, th->source,
+					&nipcb(skb)->dstaddr, ntohs(th->dest), skb->skb_iif);
 	if (sk) {
 		skb->sk = sk;
 		skb->destructor = sock_edemux;
@@ -1990,8 +1990,9 @@ struct sock *ninet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
 	u32 sk_max_ack_backlog = READ_ONCE(sk->sk_max_ack_backlog);
 
 	newsk = inet_csk_accept(sk, flags, err, kern);
-	nip_dbg("accept %s, sk_ack_backlog_last=%u, sk_max_ack_backlog=%u",
-		(newsk ? "ok" : "fail"), sk_ack_backlog_last, sk_max_ack_backlog);
+	nip_dbg("accept %s, sk_ack_backlog_last=%u, sk_max_ack_backlog=%u, err=%d",
+		(newsk ? "ok" : "fail"), sk_ack_backlog_last, sk_max_ack_backlog,
+		*err);
 
 	return newsk;
 }

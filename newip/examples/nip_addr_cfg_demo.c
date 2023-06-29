@@ -35,7 +35,7 @@ int nip_add_addr(int ifindex, const unsigned char *addr, unsigned char addr_len)
 
 	memset(&ifrn, 0, sizeof(ifrn));
 	ifrn.ifrn_addr.bitlen = addr_len * BITS_PER_BYTE; // Byte length is converted to bit length
-	memcpy(ifrn.ifrn_addr.nip_addr_field8, addr, addr_len);
+	memcpy(ifrn.ifrn_addr.NIP_ADDR_FIELD8, addr, addr_len);
 	ifrn.ifrn_ifindex = ifindex;
 
 	ret = ioctl(fd, SIOCSIFADDR, &ifrn);

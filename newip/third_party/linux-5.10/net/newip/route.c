@@ -311,7 +311,7 @@ static struct nip_rt_info *nip_pol_route_input(struct net *net,
 					       struct nip_fib_table *table,
 					       struct flow_nip *fln, int flags)
 {
-	return nip_pol_route(net, table, fln->flowin_iif, fln, flags);
+	return nip_pol_route(net, table, fln->FLOWIN_IIF, fln, flags);
 }
 
 struct dst_entry *nip_route_input_lookup(struct net *net,
@@ -326,9 +326,9 @@ int nip_route_input(struct sk_buff *skb)
 	struct net *net = dev_net(skb->dev);
 	int flags = 0;
 	struct flow_nip fln = {
-		.flowin_iif = skb->skb_iif,
-		.daddr = NIPCB(skb)->dstaddr,
-		.saddr = NIPCB(skb)->srcaddr,
+		.FLOWIN_IIF = skb->skb_iif,
+		.daddr = nipcb(skb)->dstaddr,
+		.saddr = nipcb(skb)->srcaddr,
 	};
 	struct dst_entry *out_dst;
 	int tbl_type = 0;
@@ -366,7 +366,7 @@ static struct nip_rt_info *nip_pol_route_output(struct net *net,
 						struct nip_fib_table *table,
 						struct flow_nip *fln, int flags)
 {
-	return nip_pol_route(net, table, fln->flowin_oif, fln, flags);
+	return nip_pol_route(net, table, fln->FLOWIN_OIF, fln, flags);
 }
 
 struct dst_entry *nip_route_output_flags(struct net *net, const struct sock *sk,
@@ -717,7 +717,7 @@ static inline const void *nip_choose_neigh_daddr(struct nip_rt_info *rt,
 	if (rt->rt_flags & RTF_GATEWAY)
 		return (const void *)p;
 	else if (skb)
-		return &NIPCB(skb)->dstaddr;
+		return &nipcb(skb)->dstaddr;
 	return daddr;
 }
 
@@ -961,7 +961,7 @@ static void seq_printf_nipaddr_to_proc(struct seq_file *seq,
 	int i = 0;
 
 	for (i = 0; i < addr->bitlen / NIP_ADDR_BIT_LEN_8; i++)
-		seq_printf(seq, "%02x", addr->nip_addr_field8[i]);
+		seq_printf(seq, "%02x", addr->NIP_ADDR_FIELD8[i]);
 
 	seq_puts(seq, "\t");
 }

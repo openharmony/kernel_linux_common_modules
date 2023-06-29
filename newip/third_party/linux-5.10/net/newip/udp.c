@@ -133,7 +133,7 @@ int nip_udp_get_port(struct sock *sk, unsigned short snum)
 
 	hash2_nulladdr = nip_udp_portaddr_hash(sock_net(sk), &nip_any_addr, snum);
 	/* hash2_partial is the hash result of nip_addr only */
-	hash2_partial = nip_udp_portaddr_hash(sock_net(sk), &sk->sk_nip_rcv_saddr, 0);
+	hash2_partial = nip_udp_portaddr_hash(sock_net(sk), &sk->SK_NIP_RCV_SADDR, 0);
 
 	/* precompute partial secondary hash */
 	udp_sk(sk)->udp_portaddr_hash = hash2_partial;
@@ -166,8 +166,8 @@ static int nip_udp_compute_score(struct sock *sk, struct net *net,
 	/* Source ADDRESS of the local device
 	 * In the header sent by the peer device, it is the destination address
 	 */
-	if (!nip_addr_any(&sk->sk_nip_rcv_saddr)) {
-		if (!nip_addr_eq(&sk->sk_nip_rcv_saddr, daddr))
+	if (!nip_addr_any(&sk->SK_NIP_RCV_SADDR)) {
+		if (!nip_addr_eq(&sk->SK_NIP_RCV_SADDR, daddr))
 			return -1;
 		score++;
 	}
@@ -175,8 +175,8 @@ static int nip_udp_compute_score(struct sock *sk, struct net *net,
 	/* Address of the peer device
 	 * In the packet header sent by the peer device, is the source ADDRESS
 	 */
-	if (!nip_addr_any(&sk->sk_nip_daddr)) {
-		if (!nip_addr_eq(&sk->sk_nip_daddr, saddr))
+	if (!nip_addr_any(&sk->SK_NIP_DADDR)) {
+		if (!nip_addr_eq(&sk->SK_NIP_DADDR, saddr))
 			return -1;
 		score++;
 	}
@@ -261,8 +261,8 @@ static struct sock *__nip_udp_lib_lookup_skb(struct sk_buff *skb,
 					     struct udp_table *udptable)
 {
 	return __nip_udp_lib_lookup(dev_net(skb->dev),
-				&NIPCB(skb)->srcaddr, sport,
-				&NIPCB(skb)->dstaddr, dport, skb->skb_iif,
+				&nipcb(skb)->srcaddr, sport,
+				&nipcb(skb)->dstaddr, dport, skb->skb_iif,
 				0, udptable, skb);
 }
 
@@ -309,7 +309,7 @@ int nip_udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
 
 		sin->sin_family = AF_NINET;
 		sin->sin_port = udp_hdr(skb)->source;
-		sin->sin_addr = NIPCB(skb)->srcaddr;
+		sin->sin_addr = nipcb(skb)->srcaddr;
 		*addr_len = sizeof(*sin);
 	}
 
@@ -349,9 +349,9 @@ bool nip_get_udp_input_checksum(struct sk_buff *skb)
 	struct udphdr *udphead = udp_hdr(skb);
 	unsigned short check_len = ntohs(udphead->len);
 
-	nph.nexthdr = NIPCB(skb)->nexthdr;
-	nph.saddr = NIPCB(skb)->srcaddr;
-	nph.daddr = NIPCB(skb)->dstaddr;
+	nph.nexthdr = nipcb(skb)->nexthdr;
+	nph.saddr = nipcb(skb)->srcaddr;
+	nph.daddr = nipcb(skb)->dstaddr;
 	nph.check_len = udphead->len;
 
 	return nip_check_sum_parse(skb_transport_header(skb), check_len, &nph)
@@ -433,7 +433,7 @@ int nip_udp_output(struct sock *sk, struct msghdr *msg, size_t len)
 	sport = htons(inet->inet_num);
 
 	/* Check the dev index */
-	fln.flowin_oif = sk->sk_bound_dev_if;
+	fln.FLOWIN_OIF = sk->sk_bound_dev_if;
 
 	/* Query the route & Obtain the Saddr */
 	dst = nip_sk_dst_lookup_flow(sk, &fln);

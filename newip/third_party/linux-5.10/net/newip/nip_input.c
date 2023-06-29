@@ -63,8 +63,8 @@ static int nip_rcv_finish(struct sk_buff *skb)
 	if (net->ipv4.sysctl_ip_early_demux && !skb_dst(skb) && !skb->sk) {
 		const struct ninet_protocol *ipprot;
 
-		nip_dbg("try to early demux skb, nexthdr=0x%x", NIPCB(skb)->nexthdr);
-		ipprot = rcu_dereference(ninet_protos[NIPCB(skb)->nexthdr]);
+		nip_dbg("try to early demux skb, nexthdr=0x%x", nipcb(skb)->nexthdr);
+		ipprot = rcu_dereference(ninet_protos[nipcb(skb)->nexthdr]);
 		if (ipprot)
 			edemux = READ_ONCE(ipprot->early_demux);
 		if (edemux)
@@ -99,7 +99,7 @@ int nip_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (!skb)
 		goto out;
 
-	memset(NIPCB(skb), 0, sizeof(struct ninet_skb_parm));
+	memset(nipcb(skb), 0, sizeof(struct ninet_skb_parm));
 	offset = nip_hdr_parse(skb->data, skb->len, &niph);
 	if (offset <= 0) {
 		nip_dbg("check in failure, errcode=%d, Drop a packet (nexthdr=%u, hdr_len=%u)",
@@ -114,9 +114,9 @@ int nip_rcv(struct sk_buff *skb, struct net_device *dev,
 	}
 
 	niph.total_len = ntohs(niph.total_len);
-	NIPCB(skb)->dstaddr = niph.daddr;
-	NIPCB(skb)->srcaddr = niph.saddr;
-	NIPCB(skb)->nexthdr = niph.nexthdr;
+	nipcb(skb)->dstaddr = niph.daddr;
+	nipcb(skb)->srcaddr = niph.saddr;
+	nipcb(skb)->nexthdr = niph.nexthdr;
 	skb->transport_header = skb->network_header + offset;
 	skb_orphan(skb);
 
@@ -142,7 +142,7 @@ void nip_protocol_deliver_rcu(struct sk_buff *skb)
 	if (!pskb_pull(skb, skb_transport_offset(skb)))
 		goto discard;
 
-	ipprot = rcu_dereference(ninet_protos[NIPCB(skb)->nexthdr]);
+	ipprot = rcu_dereference(ninet_protos[nipcb(skb)->nexthdr]);
 	if (ipprot) {
 		ipprot->handler(skb);
 	} else {

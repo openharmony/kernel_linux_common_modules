@@ -66,9 +66,9 @@ enum nip_32bit_addr_index {
 	NIP_32BIT_ADDR_INDEX_MAX,
 };
 
-#define nip_addr_field8 v.u.field8
-#define nip_addr_field16 v.u.field16
-#define nip_addr_field32 v.u.field32
+#define NIP_ADDR_FIELD8 v.u.field8
+#define NIP_ADDR_FIELD16 v.u.field16
+#define NIP_ADDR_FIELD32 v.u.field32
 
 #pragma pack(1)
 struct nip_addr_field {

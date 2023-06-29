@@ -84,7 +84,7 @@ static inline int __tcp_nip_mtu_to_mss(struct sock *sk, int pmtu)
 	const struct tcp_sock *tp = tcp_sk(sk);
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	int mss_now;
-	int nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &sk->sk_nip_rcv_saddr, &sk->sk_nip_daddr);
+	int nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &sk->SK_NIP_RCV_SADDR, &sk->SK_NIP_DADDR);
 
 	/* Calculate base mss without TCP options: It is MMS_S - sizeof(tcphdr) of rfc1122 */
 	nip_hdr_len = nip_hdr_len == 0 ? NIP_HDR_MAX : nip_hdr_len;
@@ -393,8 +393,8 @@ static __u16 tcp_nip_advertise_mss(struct sock *sk)
 		}
 
 		mtu = dst_mtu(dst);
-		nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &sk->sk_nip_rcv_saddr,
-					      &sk->sk_nip_daddr);
+		nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &sk->SK_NIP_RCV_SADDR,
+					      &sk->SK_NIP_DADDR);
 		nip_hdr_len = nip_hdr_len == 0 ? NIP_HDR_MAX : nip_hdr_len;
 		nip_mss = mtu - nip_hdr_len - sizeof(struct tcphdr);
 		if (nip_mss > mss) {
@@ -577,7 +577,7 @@ static int __tcp_nip_transmit_skb(struct sock *sk, struct sk_buff *skb,
 		sk->sk_rcvbuf, atomic_read(&sk->sk_rmem_alloc), ack, skb->len);
 
 	/* Fill in checksum */
-	check = nip_get_output_checksum_tcp(skb, sk->sk_nip_rcv_saddr, sk->sk_nip_daddr);
+	check = nip_get_output_checksum_tcp(skb, sk->SK_NIP_RCV_SADDR, sk->SK_NIP_DADDR);
 	th->check = htons(check);
 
 	if (likely(tcb->tcp_flags & TCPHDR_ACK))
@@ -759,7 +759,7 @@ static int get_nip_mss(const struct sock *sk, struct dst_entry *dst, struct requ
 		mss = user_mss;
 
 	mtu = dst_mtu(dst);
-	nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &ireq->ir_nip_loc_addr, &ireq->ir_nip_rmt_addr);
+	nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &ireq->IR_NIP_LOC_ADDR, &ireq->IR_NIP_RMT_ADDR);
 	nip_hdr_len = nip_hdr_len == 0 ? NIP_HDR_MAX : nip_hdr_len;
 	nip_mss = mtu - nip_hdr_len - sizeof(struct tcphdr);
 
@@ -853,7 +853,7 @@ struct sk_buff *tcp_nip_make_synack(const struct sock *sk, struct dst_entry *dst
 	__TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
 
 	/* Fill in checksum */
-	check = nip_get_output_checksum_tcp(skb,  ireq->ir_nip_loc_addr,  ireq->ir_nip_rmt_addr);
+	check = nip_get_output_checksum_tcp(skb,  ireq->IR_NIP_LOC_ADDR,  ireq->IR_NIP_RMT_ADDR);
 	th->check = htons(check);
 
 	/* Do not fool tcpdump (if any), clean our debris */
@@ -879,8 +879,8 @@ int __nip_send_synack(struct request_sock *req, struct sk_buff *skb)
 	skb->protocol = htons(ETH_P_NEWIP);
 	skb->ip_summed = csummode;
 	skb->csum = 0;
-	saddr = &ireq->ir_nip_loc_addr;
-	daddr = &ireq->ir_nip_rmt_addr;
+	saddr = &ireq->IR_NIP_LOC_ADDR;
+	daddr = &ireq->IR_NIP_RMT_ADDR;
 
 	head.saddr = *saddr;
 	head.daddr = *daddr;
@@ -894,9 +894,9 @@ int __nip_send_synack(struct request_sock *req, struct sk_buff *skb)
 	skb_push(skb, head.hdr_buf_pos);
 	memcpy(skb->data, head.hdr_buf, head.hdr_buf_pos);
 	skb_reset_network_header(skb);
-	NIPCB(skb)->srcaddr = *saddr;
-	NIPCB(skb)->dstaddr = *daddr;
-	NIPCB(skb)->nexthdr = head.nexthdr;
+	nipcb(skb)->srcaddr = *saddr;
+	nipcb(skb)->dstaddr = *daddr;
+	nipcb(skb)->nexthdr = head.nexthdr;
 
 	head.total_len = skb->len;
 	err = nip_send_skb(skb);
