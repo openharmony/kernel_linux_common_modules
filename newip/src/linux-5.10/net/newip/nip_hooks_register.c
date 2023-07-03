@@ -53,10 +53,12 @@ void nip_ninet_gifconf_lhck_register(void)
 	REGISTER_HCK_LITE_HOOK(nip_ninet_gifconf_lhck, nip_ninet_gifconf);
 }
 
-void __init ninet_hooks_init(void)
+int __init ninet_hooks_init(void)
 {
 	nip_ninet_ehashfn_lhck_register();
 	nip_ninet_gifconf_lhck_register();
+
+	return 0;
 }
 
 void __exit ninet_hooks_exit(void)
