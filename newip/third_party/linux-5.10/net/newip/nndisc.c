@@ -375,11 +375,22 @@ static void nndisc_send_ns(struct net_device *dev,
 		nip_dbg("dst output fail");
 }
 
+static void __send_ns_packet(__u8 nud_state, struct net_device *dev,
+			     const struct nip_addr *target, const struct nip_addr *saddr)
+{
+	if (nud_state & NUD_VALID) {
+		nndisc_send_ns(dev, target, target, saddr);
+		nip_dbg("unicast ns");
+	} else {
+		nndisc_send_ns(dev, target, &nip_broadcast_addr_arp, saddr);
+		nip_dbg("multicast ns");
+	}
+}
+
 static void nndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
 {
 	struct net_device *dev = neigh->dev;
 	struct nip_addr *target = (struct nip_addr *)&neigh->primary_key;
-	struct nip_addr *saddr = NULL;
 	struct ninet_dev *idev;
 
 	/* Obtain the NewIP address from the current dev as
@@ -387,22 +398,20 @@ static void nndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
 	 */
 	rcu_read_lock();
 	idev = __nin_dev_get(dev);
-	if (idev) {
-		read_lock_bh(&idev->lock);
-		if (!list_empty(&idev->addr_list)) {
-			struct ninet_ifaddr *ifp;
-
-			list_for_each_entry(ifp, &idev->addr_list, if_list) {
-				saddr = &ifp->addr;
-				nndisc_send_ns(dev, target,
-					       &nip_broadcast_addr_arp,
-					       saddr);
-			}
-		}
-		read_unlock_bh(&idev->lock);
-	} else {
+	if (!idev) {
 		nip_dbg("idev don't exist");
+		rcu_read_unlock();
+		return;
 	}
+	read_lock_bh(&idev->lock);
+	if (!list_empty(&idev->addr_list)) {
+		struct ninet_ifaddr *ifp;
+
+		list_for_each_entry(ifp, &idev->addr_list, if_list) {
+			__send_ns_packet(neigh->nud_state, dev, target, &ifp->addr);
+		}
+	}
+	read_unlock_bh(&idev->lock);
 	rcu_read_unlock();
 }
 
