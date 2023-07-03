@@ -17,7 +17,7 @@ config NEWIP_FAST_KEEPALIVE
 	  Support for NewIP fast keepalive.
 
 config NEWIP_HOOKS
-	default n
+	def_bool NEWIP && HCK_VENDOR_HOOKS
 	help
 	  Enable NewIP hooks implemented as tracepoints
 	  Allow NewIP modules to attach to tracepoint "hooks" defined via
