@@ -9,7 +9,15 @@
 #include <linux/rwlock_types.h>
 #include <linux/rwlock.h>
 #include <linux/init.h>
+#include <linux/moduleparam.h>
+#include <linux/device-mapper.h>
+#include <linux/kdev_t.h>
+#include <linux/namei.h>
+#include "mount.h"
+#include "internal.h"
 #include "exec_signature_info.h"
+#include "xpm_report.h"
+#include "xpm_log.h"
 
 #define VERITY_NODE_CACHE_LIMITS       10000
 #define VERITY_NODE_CACHE_RECYCLE_NUM  200
@@ -27,9 +35,244 @@ struct verity_info {
 	int *node_count;
 };
 
+static bool dm_verity_enable_check;
+
+#define DM_PARTITION_PATH_MAX	20
+#define DM_VERITY_INVALID_DEV	((dev_t)-1)
+#define SYSTTEM_STARTUP_SECOND_STAGE	"/system/bin/init"
+
+struct dm_partition {
+	char path[DM_PARTITION_PATH_MAX];
+	int len;
+	dev_t s_dev;
+};
+
+static struct dm_partition	dm_partition_table[] = {
+	{ .path = "/",           .len = 1,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/system/",    .len = 8,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/vendor/",    .len = 8,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/misc/",      .len = 6,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/sys_prod/",  .len = 10, .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/chip_prod/", .len = 11, .s_dev = DM_VERITY_INVALID_DEV },
+};
+
+static struct path	root_path;
+
+static dev_t get_file_dev(struct file *file)
+{
+	struct super_block *sb;
+	struct mount *mnt;
+
+	if (file->f_path.mnt == NULL)
+		return DM_VERITY_INVALID_DEV;
+
+	mnt = container_of(file->f_path.mnt, struct mount, mnt);
+	sb = mnt->mnt.mnt_sb;
+	if (sb == NULL)
+		return DM_VERITY_INVALID_DEV;
+
+	return sb->s_dev;
+}
+
+static dev_t get_dm_verity_partition_dev(const char *dir)
+{
+	int ret;
+	struct path path;
+	struct vfsmount *mnt;
+	dev_t s_dev;
+
+	if (root_path.dentry == NULL) {
+		ret = kern_path("/", LOOKUP_DIRECTORY, &path);
+		if (ret) {
+			xpm_log_error("get / path failed.");
+			return DM_VERITY_INVALID_DEV;
+		}
+	} else {
+		ret = vfs_path_lookup(root_path.dentry, root_path.mnt, dir, LOOKUP_DIRECTORY, &path);
+		if (ret) {
+			xpm_log_error("get %s path failed.", dir);
+			return DM_VERITY_INVALID_DEV;
+		}
+	}
+
+	mnt = path.mnt;
+	if (IS_ERR(mnt) || IS_ERR(mnt->mnt_sb)) {
+		path_put(&path);
+		xpm_log_error("get %s dev failed.", dir);
+		return DM_VERITY_INVALID_DEV;
+	}
+
+	s_dev = mnt->mnt_sb->s_dev;
+	path_put(&path);
+
+	xpm_log_info("get %s dev=%u:%u success", dir, s_dev, MINOR(s_dev));
+	return s_dev;
+}
+
+static bool find_partition_dev(struct file *file)
+{
+	char *full_path = NULL;
+	char path[PATH_MAX] = {0};
+	struct dm_partition *dm_path;
+	int i;
+
+	for (i = 1; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++) {
+		dm_path = &dm_partition_table[i];
+		if (dm_path->s_dev != DM_VERITY_INVALID_DEV)
+			continue;
+
+		if (full_path == NULL) {
+			full_path = file_path(file, path, PATH_MAX-1);
+			if (IS_ERR(full_path))
+				return false;
+		}
+		if (strncmp(dm_path->path, full_path, dm_path->len) != 0)
+			continue;
+
+		dm_path->s_dev = get_dm_verity_partition_dev(dm_path->path);
+		if (dm_path->s_dev == DM_VERITY_INVALID_DEV)
+			return false;
+		if (dm_path->s_dev == get_file_dev(file))
+			return true;
+		return false;
+	}
+
+	return false;
+}
+
+static bool dm_verity_check_for_path(struct file *file)
+{
+	static int system_startup_stage;
+	char *full_path;
+	char path[PATH_MAX] = {0};
+	struct dm_partition *dm_path;
+	dev_t s_dev;
+	int i, ret;
+
+	s_dev = get_file_dev(file);
+	if (!system_startup_stage) {
+		full_path = file_path(file, path, PATH_MAX - 1);
+		if (IS_ERR(full_path))
+			return false;
+		if (strcmp(SYSTTEM_STARTUP_SECOND_STAGE, full_path) != 0) {
+			dm_path = &dm_partition_table[0];
+			if (dm_path->s_dev == s_dev)
+				return true;
+			return false;
+		}
+		ret = kern_path("/", LOOKUP_DIRECTORY, &root_path);
+		if (ret) {
+			xpm_log_error("get / path failed.");
+			return false;
+		}
+		system_startup_stage = 1;
+	}
+
+	for (i = 1; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++) {
+		dm_path = &dm_partition_table[i];
+		if (dm_path->s_dev == s_dev)
+			return true;
+	}
+
+	return find_partition_dev(file);
+}
+
+#ifdef CONFIG_DM_VERITY
+#define HVB_CMDLINE_VB_STATE	"ohos.boot.hvb.enable"
+static bool dm_verity_enable;
+
+static int hvb_boot_param_cb(char *param, char *val,
+	const char *unused, void *arg)
+{
+	if (param == NULL || val == NULL)
+		return 0;
+
+	if (strcmp(param, HVB_CMDLINE_VB_STATE) != 0)
+		return 0;
+
+	if (strcmp(val, "true") == 0 || strcmp(val, "TRUE") == 0)
+		dm_verity_enable = true;
+
+	return 0;
+}
+
+static bool dm_verity_is_enable(void)
+{
+	char *cmdline;
+
+	if (dm_verity_enable || dm_verity_enable_check)
+		return dm_verity_enable;
+
+	cmdline = kstrdup(saved_command_line, GFP_KERNEL);
+	if (cmdline == NULL)
+		return false;
+
+	parse_args("hvb.enable params", cmdline, NULL,
+		0, 0, 0, NULL, &hvb_boot_param_cb);
+	kfree(cmdline);
+	dm_verity_enable_check = true;
+	if (!dm_verity_enable) {
+		dm_partition_table[0].s_dev = get_dm_verity_partition_dev(dm_partition_table[0].path);
+		report_init_event(TYPE_DM_DISABLE);
+	}
+	return dm_verity_enable;
+}
+
+static bool dm_verity_check_for_mnt(struct file *file)
+{
+	struct mapped_device *device;
+
+	device = dm_get_md(get_file_dev(file));
+	if (device == NULL)
+		return false;
+
+	dm_put(device);
+	return true;
+}
+#endif
+
+static bool is_dm_verity(struct file *file)
+{
+#ifdef CONFIG_DM_VERITY
+	if (dm_verity_is_enable())
+		return dm_verity_check_for_mnt(file);
+#endif
+
+	if (!dm_verity_enable_check) {
+		dm_partition_table[0].s_dev = get_dm_verity_partition_dev(dm_partition_table[0].path);
+		dm_verity_enable_check = true;
+		report_init_event(TYPE_DM_DISABLE);
+	}
+	return dm_verity_check_for_path(file);
+}
+
+#ifdef CONFIG_FS_VERITY
+static bool is_fs_verity(struct file *file)
+{
+	struct inode *file_node;
+
+	file_node = file_inode(file);
+	if (file_node == NULL)
+		return false;
+
+	if (file_node->i_verity_info == NULL)
+		return false;
+
+	return true;
+}
+#endif
+
 static int check_exec_file_is_verity(struct file *file)
 {
-	return FILE_SIGNATURE_DM_VERITY;
+#ifdef CONFIG_FS_VERITY
+	if (is_fs_verity(file))
+		return FILE_SIGNATURE_FS_VERITY;
+#endif
+
+	if (is_dm_verity(file))
+		return FILE_SIGNATURE_DM_VERITY;
+
+	return FILE_SIGNATURE_INVALID;
 }
 
 static struct exec_file_signature_info *rb_search_node(struct rb_root *root, uintptr_t file_inode)
@@ -140,24 +383,25 @@ static size_t test_elf_code_segment_info_size(struct rb_root *root)
 static void test_printf_code_segment_cache_size(void)
 {
 	size_t cache_size = 0;
-	int count = 0;
+	int dm_count;
+	int fs_count;
 
 	read_lock(&dm_verity_tree_lock);
 	cache_size += test_elf_code_segment_info_size(&dm_verity_tree);
-	count += dm_verity_node_count;
+	dm_count = dm_verity_node_count;
 	read_unlock(&dm_verity_tree_lock);
 
 	read_lock(&fs_verity_tree_lock);
 	cache_size += test_elf_code_segment_info_size(&fs_verity_tree);
-	count += fs_verity_node_count;
+	fs_count = fs_verity_node_count;
 	read_unlock(&fs_verity_tree_lock);
 
-	pr_info("[exec signature cache] count=%d, cache size=%d KB\n", count, cache_size / 1024);
+	xpm_log_info("cache dm count=%d, fs count=%d, cache size=%d KB\n", dm_count, fs_count, cache_size / 1024);
 }
 
-static void test_print_elf_code_segment_info(struct file *file, const struct exec_file_signature_info *file_info)
+static void test_print_info(struct file *file, unsigned int type, const struct exec_file_signature_info *file_info)
 {
-	char *ret_path;
+	char *full_path;
 	char path[PATH_MAX] = {0};
 	static int code_segment_test_count = 100;
 	int i;
@@ -166,13 +410,14 @@ static void test_print_elf_code_segment_info(struct file *file, const struct exe
 	if (code_segment_test_count > 0)
 		return;
 
-	ret_path = file_path(file, path, PATH_MAX-1);
-	if (IS_ERR(ret_path))
+	full_path = file_path(file, path, PATH_MAX - 1);
+	if (IS_ERR(full_path))
 		return;
 
 	for (i = 0; i < file_info->code_segment_count; i++)
-		pr_info("[exec signature segment] %s -> offset: 0x%llx size: 0x%lx\n",
-			ret_path, file_info->code_segments->file_offset, file_info->code_segments->size);
+		xpm_log_info("%s -> type: %s, info: offset=0x%llx size=0x%lx\n",
+			full_path, type == FILE_SIGNATURE_DM_VERITY ? "dm" : "fs",
+			file_info->code_segments->file_offset, file_info->code_segments->size);
 
 	code_segment_test_count = 100;
 }
@@ -279,7 +524,7 @@ need_parse:
 		if (ret < 0)
 			return ret;
 #ifdef CONFIG_SECURITY_XPM_DEBUG
-		test_print_elf_code_segment_info(file, new_info);
+		test_print_info(file, type, new_info);
 #endif
 	}
 

@@ -158,6 +158,8 @@ static const struct xpm_event_info xpm_event[] = {
 		EVENT_INIT, set_init_content },
 	[TYPE_DEBUGFS_UNINIT] = { "debugfs uninitialized",
 		EVENT_INIT, set_init_content },
+	[TYPE_DM_DISABLE] = { "dm-verity disable",
+		EVENT_INIT, set_init_content },
 	[TYPE_FORMAT_UNDEF] = { "unkown file format",
 		EVENT_FILE, set_file_content },
 	[TYPE_ANON_EXEC] = { "anon executed",

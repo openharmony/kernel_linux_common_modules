@@ -85,6 +85,31 @@ static int xpm_check_code_segment(bool is_exec, struct vm_area_struct *vma,
 	return xpm_avc_has_perm(SECCLASS_XPM, XPM__EXEC_NO_SIGN);
 }
 
+static void xpm_check_signature_error(struct file *file, int err_num)
+{
+	char *full_path;
+	char *path;
+
+	if (file == NULL)
+		return;
+
+	path = __getname();
+	if (path == NULL) {
+		xpm_log_error("malloc file name failed");
+		return;
+	}
+
+	full_path = file_path(file, path, PATH_MAX - 1);
+	if (IS_ERR(full_path)) {
+		xpm_log_error("get file d_path failed");
+		return;
+	}
+
+	xpm_log_error("xpm get %s signature info failed, errno = %d", full_path, -err_num);
+	__putname(path);
+	return;
+}
+
 static int xpm_check_signature(struct vm_area_struct *vma, unsigned long prot)
 {
 	int ret;
@@ -99,7 +124,7 @@ static int xpm_check_signature(struct vm_area_struct *vma, unsigned long prot)
 	/* validate signature when vma is mmap in xpm region or executable */
 	ret = get_exec_file_signature_info(vma->vm_file, is_exec, &info);
 	if (ret) {
-		xpm_log_error("xpm get executable file signature info failed");
+		xpm_check_signature_error(vma->vm_file, ret);
 		report_file_event(TYPE_FORMAT_UNDEF, vma->vm_file);
 		return ret;
 	}
