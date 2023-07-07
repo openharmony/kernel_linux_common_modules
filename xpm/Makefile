@@ -19,7 +19,8 @@ obj-$(CONFIG_SECURITY_XPM_DEBUG) += \
 ccflags-$(CONFIG_SECURITY_XPM) += \
 	-I$(srctree)/security/xpm/include \
 	-I$(srctree)/security/selinux/include \
-	-I$(srctree)/security/selinux
+	-I$(srctree)/security/selinux \
+	-I$(srctree)/fs
 
 $(addprefix $(obj)/,$(obj-y)): $(obj)/flask.h
 
