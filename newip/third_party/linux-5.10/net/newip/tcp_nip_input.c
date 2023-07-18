@@ -54,6 +54,32 @@
  *					engine. Lots of bugs are found.
  *		Pasi Sarolahti:		F-RTO for dealing with spurious RTOs
  *
+ * Based on net\ipv4\tcp_westwood.c
+ * TCP Westwood+: end-to-end bandwidth estimation for TCP
+ *
+ *      Angelo Dell'Aera: author of the first version of TCP Westwood+ in Linux 2.4
+ *
+ * Support at http://c3lab.poliba.it/index.php/Westwood
+ * Main references in literature:
+ *
+ * - Mascolo S, Casetti, M. Gerla et al.
+ *   "TCP Westwood: bandwidth estimation for TCP" Proc. ACM Mobicom 2001
+ *
+ * - A. Grieco, s. Mascolo
+ *   "Performance evaluation of New Reno, Vegas, Westwood+ TCP" ACM Computer
+ *     Comm. Review, 2004
+ *
+ * - A. Dell'Aera, L. Grieco, S. Mascolo.
+ *   "Linux 2.4 Implementation of Westwood+ TCP with Rate-Halving :
+ *    A Performance Evaluation Over the Internet" (ICC 2004), Paris, June 2004
+ *
+ * Westwood+ employs end-to-end bandwidth measurement to set cwnd and
+ * ssthresh after packet loss. The probing phase is as the original Reno.
+ *
+ * Based on include\net\tcp.h
+ * Authors:	Ross Biro
+ *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
+ *
  * NewIP INET
  * An implementation of the TCP/IP protocol suite for the LINUX
  * operating system. NewIP INET is implemented using the  BSD Socket
@@ -102,6 +128,13 @@
 #define REXMIT_NEW  2 /* FRTO-style transmit of unsent/new packets */
 
 #define TCP_MAX_MSS 1460
+
+#define SRTT_FACTOR_FOUR_FIVE 4
+#define SRTT_DIVISOR_FACTOR   5
+#define BW_FACTOR_SEVEN_EIGHT 7
+#define BW_DIVISOR_FACTOR     8
+#define BW_MULTIPLY_FACTOR    100
+#define HALF_DIVISOR_FACTOR   2
 
 void tcp_nip_fin(struct sock *sk)
 {
@@ -721,11 +754,42 @@ void tcp_nip_rearm_rto(struct sock *sk)
 	}
 }
 
+static void update_nip_srtt(u32 *srtt, u32 rtt_tstamp)
+{
+	if (*srtt == 0)
+		*srtt = rtt_tstamp;
+	else
+		*srtt = (SRTT_FACTOR_FOUR_FIVE * (*srtt) + rtt_tstamp) /
+		SRTT_DIVISOR_FACTOR;
+	ssthresh_dbg("rtt_tstamp=%u, srtt=%u", rtt_tstamp, *srtt);
+}
+
+static void update_pcache_rto(u32 *rto, int srtt)
+{
+	int cal_rto;
+	int srtt_factor;
+	int calc_srtt;
+
+	srtt_factor = get_nip_srtt_factor() <= 0 ? 1 : get_nip_srtt_factor();
+	calc_srtt = srtt + srtt / srtt_factor;
+	cal_rto =  get_nip_dynamic_rto_min() >= calc_srtt ? get_nip_dynamic_rto_min() : calc_srtt;
+	*rto = get_nip_dynamic_rto_max() >= cal_rto ? cal_rto : get_nip_dynamic_rto_max();
+}
+
+static void update_nip_rto(u32 *icsk_rto, u32 rtt_tstamp, struct sock *sk)
+{
+	struct tcp_nip_common *ntp = &tcp_nip_sk(sk)->common;
+
+	update_nip_srtt(&ntp->nip_srtt, rtt_tstamp);
+	update_pcache_rto(icsk_rto, ntp->nip_srtt);
+}
+
 static int tcp_nip_clean_rtx_queue(struct sock *sk, ktime_t *skb_snd_tstamp)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *skb;
 	int flag = 0;
+	u32 rtt_tstamp;
 	struct inet_connection_sock *icsk = inet_csk(sk);
 
 	while ((skb = tcp_write_queue_head(sk)) && skb != tcp_nip_send_head(sk)) {
@@ -757,7 +821,8 @@ static int tcp_nip_clean_rtx_queue(struct sock *sk, ktime_t *skb_snd_tstamp)
 		sk_wmem_free_skb(sk, skb);
 	}
 	/* V4 no modified this line */
-	icsk->icsk_rto = get_nip_rto() == 0 ? TCP_TIMEOUT_INIT : (HZ / get_nip_rto());
+	rtt_tstamp = tp->rcv_tstamp - *skb_snd_tstamp;
+	update_nip_rto(&icsk->icsk_rto, rtt_tstamp, sk);
 	if (flag & FLAG_ACKED)
 		tcp_nip_rearm_rto(sk);
 	return 0;
@@ -1366,6 +1431,122 @@ static void tcp_nip_nor_ack_retrans(struct sock *sk, u32 ack, u32 retrans_num)
 	tp->sacked_out = 0;
 }
 
+static void update_nip_bw(u32 *bw, const struct tcp_sock *tp, u32 rtt_tstamp)
+{
+	if (tp->snd_nxt > tp->snd_una && rtt_tstamp > 0) {
+		u32 bw_est = (tp->snd_nxt - tp->snd_una) * BW_MULTIPLY_FACTOR / rtt_tstamp;
+
+		if (*bw == 0)
+			*bw = bw_est;
+		else
+			*bw = (BW_FACTOR_SEVEN_EIGHT * ((*bw) / BW_DIVISOR_FACTOR) +
+			       (bw_est / BW_DIVISOR_FACTOR));
+	}
+}
+
+static void __tcp_nip_ack_calc_ssthresh_bw(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+					   u32 icsk_rto, u32 ack)
+{
+	ssthresh_dbg("bw %u < %u , win %u to %u, rtt=%u rto=%u, ack=%u",
+		     ntp->nip_bw, get_nip_br_max_bw(), ntp->nip_ssthresh,
+		     get_ssthresh_low(), rtt_tstamp, icsk_rto, ack);
+
+	ntp->nip_ssthresh = get_ssthresh_low();
+}
+
+static void __tcp_nip_ack_calc_ssthresh_rto_up(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+					       u32 icsk_rto, u32 ack, int icsk_rto_last)
+{
+	ssthresh_dbg("rtt %u >= %u, win %u to %u, rto %u to %u, ack=%u",
+		     rtt_tstamp, get_rtt_tstamp_rto_up(),
+		     ntp->nip_ssthresh, get_ssthresh_br_max(),
+		     icsk_rto_last, icsk_rto, ack);
+
+	ntp->nip_ssthresh = get_ssthresh_br_max();
+}
+
+static void __tcp_nip_ack_calc_ssthresh_rtt_high(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+						 u32 ack)
+{
+	ssthresh_dbg("rtt %u >= %u, win %u to %u, ack=%u",
+		     rtt_tstamp, get_rtt_tstamp_high(),
+		     ntp->nip_ssthresh, get_ssthresh_low(), ack);
+
+	ntp->nip_ssthresh = get_ssthresh_low();
+}
+
+static void __tcp_nip_ack_calc_ssthresh_rtt_mid_high(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+						     u32 ack)
+{
+	ssthresh_dbg("rtt %u >= %u, win %u to %u, ack=%u",
+		     rtt_tstamp, get_rtt_tstamp_mid_high(),
+		     ntp->nip_ssthresh, get_ssthresh_mid_low(), ack);
+
+	ntp->nip_ssthresh = get_ssthresh_mid_low();
+}
+
+static void __tcp_nip_ack_calc_ssthresh_rtt_mid_low(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+						    u32 ack)
+{
+	u32 rtt_tstamp_scale = get_rtt_tstamp_mid_high() - rtt_tstamp;
+	int half_mid_high = get_ssthresh_mid_high() / HALF_DIVISOR_FACTOR;
+	u32 nip_ssthresh;
+
+	nip_ssthresh = half_mid_high + rtt_tstamp_scale * half_mid_high /
+		       (get_rtt_tstamp_mid_high() - get_rtt_tstamp_mid_low());
+
+	ntp->nip_ssthresh = ntp->nip_ssthresh > get_ssthresh_mid_high() ?
+			    half_mid_high : ntp->nip_ssthresh;
+	nip_ssthresh = (ntp->nip_ssthresh * get_ssthresh_high_step() +
+			nip_ssthresh) / (get_ssthresh_high_step() + 1);
+
+	ssthresh_dbg("rtt %u >= %u, win %u to %u, ack=%u",
+		     rtt_tstamp, get_rtt_tstamp_mid_low(),
+		     ntp->nip_ssthresh, nip_ssthresh, ack);
+
+	ntp->nip_ssthresh = nip_ssthresh;
+}
+
+static void __tcp_nip_ack_calc_ssthresh_default(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+						u32 ack)
+{
+	u32 nip_ssthresh;
+
+	nip_ssthresh = (ntp->nip_ssthresh * get_ssthresh_high_step() +
+		       get_ssthresh_high()) /
+		       (get_ssthresh_high_step() + 1);
+
+	ssthresh_dbg("rtt %u < %u, win %u to %u, ack=%u",
+		     rtt_tstamp, get_rtt_tstamp_mid_low(),
+		     ntp->nip_ssthresh, nip_ssthresh, ack);
+
+	ntp->nip_ssthresh =  nip_ssthresh;
+}
+
+static void __tcp_nip_ack_calc_ssthresh(struct tcp_nip_common *ntp, struct tcp_sock *tp,
+					u32 rtt_tstamp,
+					struct inet_connection_sock *icsk, u32 ack,
+					int icsk_rto_last)
+{
+	update_nip_bw(&ntp->nip_bw, tp, rtt_tstamp);
+	if (ntp->nip_bw < get_nip_br_max_bw()) {
+		__tcp_nip_ack_calc_ssthresh_bw(ntp, rtt_tstamp, icsk->icsk_rto, ack);
+		return;
+	}
+
+	if (rtt_tstamp >= get_rtt_tstamp_rto_up())
+		__tcp_nip_ack_calc_ssthresh_rto_up(ntp, rtt_tstamp, icsk->icsk_rto,
+						   ack, icsk_rto_last);
+	else if (rtt_tstamp >= get_rtt_tstamp_high())
+		__tcp_nip_ack_calc_ssthresh_rtt_high(ntp, rtt_tstamp, ack);
+	else if (rtt_tstamp >= get_rtt_tstamp_mid_high())
+		__tcp_nip_ack_calc_ssthresh_rtt_mid_high(ntp, rtt_tstamp, ack);
+	else if (rtt_tstamp >= get_rtt_tstamp_mid_low())
+		__tcp_nip_ack_calc_ssthresh_rtt_mid_low(ntp, rtt_tstamp, ack);
+	else if (rtt_tstamp != 0)
+		__tcp_nip_ack_calc_ssthresh_default(ntp, rtt_tstamp, ack);
+}
+
 static void tcp_nip_ack_calc_ssthresh(struct sock *sk, u32 ack, int icsk_rto_last,
 				      ktime_t skb_snd_tstamp)
 {
@@ -1373,7 +1554,6 @@ static void tcp_nip_ack_calc_ssthresh(struct sock *sk, u32 ack, int icsk_rto_las
 	struct tcp_nip_common *ntp = &tcp_nip_sk(sk)->common;
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	int ack_reset = ack / get_nip_ssthresh_reset();
-	u32 nip_ssthresh;
 
 	if (ntp->nip_ssthresh_reset != ack_reset) {
 		ssthresh_dbg("ack reset win %u to %u, ack=%u",
@@ -1384,54 +1564,7 @@ static void tcp_nip_ack_calc_ssthresh(struct sock *sk, u32 ack, int icsk_rto_las
 		if (skb_snd_tstamp) {
 			u32 rtt_tstamp = tp->rcv_tstamp - skb_snd_tstamp;
 
-			if (rtt_tstamp >= get_rtt_tstamp_rto_up()) {
-				ssthresh_dbg("rtt %u >= %u, win %u to %u, rto %u to %u, ack=%u",
-					     rtt_tstamp, get_rtt_tstamp_rto_up(),
-					     ntp->nip_ssthresh, get_ssthresh_low_min(),
-					     icsk_rto_last, icsk->icsk_rto, ack);
-
-				ntp->nip_ssthresh = get_ssthresh_low_min();
-			} else if (rtt_tstamp >= get_rtt_tstamp_high()) {
-				ssthresh_dbg("rtt %u >= %u, win %u to %u, ack=%u",
-					     rtt_tstamp, get_rtt_tstamp_high(),
-					     ntp->nip_ssthresh, get_ssthresh_low(), ack);
-
-				ntp->nip_ssthresh = get_ssthresh_low();
-			} else if (rtt_tstamp >= get_rtt_tstamp_mid_high()) {
-				ssthresh_dbg("rtt %u >= %u, win %u to %u, ack=%u",
-					     rtt_tstamp, get_rtt_tstamp_mid_high(),
-					     ntp->nip_ssthresh, get_ssthresh_mid_low(), ack);
-
-				ntp->nip_ssthresh = get_ssthresh_mid_low();
-			} else if (rtt_tstamp >= get_rtt_tstamp_mid_low()) {
-				u32 rtt_tstamp_scale = get_rtt_tstamp_mid_high() - rtt_tstamp;
-				int half_mid_high = get_ssthresh_mid_high() / 2;
-
-				nip_ssthresh = half_mid_high + rtt_tstamp_scale * half_mid_high /
-					       (get_rtt_tstamp_mid_high() -
-					       get_rtt_tstamp_mid_low());
-
-				ntp->nip_ssthresh = ntp->nip_ssthresh > get_ssthresh_mid_high() ?
-						    half_mid_high : ntp->nip_ssthresh;
-				nip_ssthresh = (ntp->nip_ssthresh * get_ssthresh_high_step() +
-					       nip_ssthresh) / (get_ssthresh_high_step() + 1);
-
-				ssthresh_dbg("rtt %u >= %u, win %u to %u, ack=%u",
-					     rtt_tstamp, get_rtt_tstamp_mid_low(),
-					     ntp->nip_ssthresh, nip_ssthresh, ack);
-
-				ntp->nip_ssthresh = nip_ssthresh;
-			} else if (rtt_tstamp != 0) {
-				nip_ssthresh = (ntp->nip_ssthresh * get_ssthresh_high_step() +
-					       get_ssthresh_high()) /
-					       (get_ssthresh_high_step() + 1);
-
-				ssthresh_dbg("rtt %u < %u, win %u to %u, ack=%u",
-					     rtt_tstamp, get_rtt_tstamp_mid_low(),
-					     ntp->nip_ssthresh, nip_ssthresh, ack);
-
-				ntp->nip_ssthresh =  nip_ssthresh;
-			}
+			__tcp_nip_ack_calc_ssthresh(ntp, tp, rtt_tstamp, icsk, ack, icsk_rto_last);
 		}
 	}
 }
