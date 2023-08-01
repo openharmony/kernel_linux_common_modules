@@ -56,7 +56,7 @@
 #endif
 #include "tcp_nip_parameter.h"
 
-#define NINET_IOCTL_FLAG_LEN	8
+#define NINET_IOCTL_FLAG_LEN    8
 #define NINET_IOCTL_HEAD_LEN    12
 #define NINET_IOCTL_FLAG_VALUE  {0xea, 0xdd, 0xea, 0xdd, 0xea, 0xdd, 0xea, 0xdd}
 
@@ -291,12 +291,18 @@ out:
 int ninet_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
+	int err;
+	int num;
 
 	if (!sk)
 		return -EINVAL;
 
 	atomic_dec_if_positive(&g_nip_socket_number);
-	return inet_release(sock);
+	err = inet_release(sock);
+	num = atomic_read(&g_nip_socket_number);
+	nip_dbg("%s, The final number of socket is: %d",
+		err ? "failed" : "success", num);
+	return err;
 }
 
 void ninet_destroy_sock(struct sock *sk)

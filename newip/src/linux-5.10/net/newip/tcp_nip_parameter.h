@@ -16,6 +16,10 @@
 #ifndef _TCP_NIP_PARAMETER_H
 #define _TCP_NIP_PARAMETER_H
 
+int get_nip_srtt_factor(void);
+int get_nip_dynamic_rto_max(void);
+int get_nip_dynamic_rto_min(void);
+int get_nip_br_max_bw(void);
 int get_nip_rto(void);
 int get_nip_sndbuf(void);
 int get_nip_rcvbuf(void);
@@ -39,6 +43,7 @@ int get_ssthresh_mid_low(void);
 int get_ssthresh_low(void);
 int get_ssthresh_low_min(void);
 int get_ssthresh_high_step(void);
+int get_ssthresh_br_max(void);
 int get_nip_idle_ka_probes_out(void);
 int get_nip_keepalive_time(void);
 int get_nip_keepalive_intvl(void);

@@ -34,12 +34,47 @@ module_param_named(af_ninet, g_af_ninet, int, 0444);
 /*                            Rto timeout timer period (HZ/n)                                */
 /*********************************************************************************************/
 /* RTT RTO in the small-delay scenario */
-int g_nip_rto = 20;
+int g_nip_rto = 50;
 module_param_named(nip_rto, g_nip_rto, int, 0644);
 
 int get_nip_rto(void)
 {
 	return g_nip_rto;
+}
+
+int g_nip_dynamic_rto_max = 60; // 60ms
+module_param_named(nip_dynamic_rto_max, g_nip_dynamic_rto_max, int, 0644);
+
+int get_nip_dynamic_rto_max(void)
+{
+	return g_nip_dynamic_rto_max;
+}
+
+int g_nip_dynamic_rto_min = 20; // 20ms
+module_param_named(nip_dynamic_rto_min, g_nip_dynamic_rto_min, int, 0644);
+
+int get_nip_dynamic_rto_min(void)
+{
+	return g_nip_dynamic_rto_min;
+}
+
+int g_nip_srtt_factor = 4;
+module_param_named(nip_srtt_factor, g_nip_srtt_factor, int, 0644);
+
+int get_nip_srtt_factor(void)
+{
+	return g_nip_srtt_factor;
+}
+
+/*********************************************************************************************/
+/*                                    BW parameters                                          */
+/*********************************************************************************************/
+int g_nip_br_max_bw = 400000;
+module_param_named(nip_br_max_bw, g_nip_br_max_bw, int, 0644);
+
+int get_nip_br_max_bw(void)
+{
+	return g_nip_br_max_bw;
 }
 
 /*********************************************************************************************/
@@ -243,6 +278,14 @@ module_param_named(ssthresh_high_step, g_ssthresh_high_step, int, 0644);
 int get_ssthresh_high_step(void)
 {
 	return g_ssthresh_high_step;
+}
+
+int g_ssthresh_br_max = 100000; // ssthresh = 100K
+module_param_named(nip_ssthresh_br_max, g_ssthresh_br_max, int, 0644);
+
+int get_ssthresh_br_max(void)
+{
+	return g_ssthresh_br_max;
 }
 
 /*********************************************************************************************/
