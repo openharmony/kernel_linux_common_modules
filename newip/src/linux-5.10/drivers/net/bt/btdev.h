@@ -76,7 +76,7 @@ struct bt_ring {
 struct bt_cdev {
 	struct cdev *cdev;
 	struct class *bt_class;
-	char dev_filename[BT_PATHNAME_MAX];
+	char dev_filename[IFNAMSIZ];
 };
 
 struct bt_mng_file {

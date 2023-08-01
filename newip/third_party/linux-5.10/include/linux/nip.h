@@ -20,13 +20,13 @@
  *	Pauline Middelink	:	identd support
  *		Alan Cox	:	Eliminate low level recv/recvfrom
  *		David S. Miller	:	New socket lookup architecture.
- *              Steve Whitehouse:       Default routines for sock_ops
- *              Arnaldo C. Melo :	removed net_pinfo, tp_pinfo and made
- *              			protinfo be just a void pointer, as the
- *              			protocol specific parts were moved to
- *              			respective headers and ipv4/v6, etc now
- *              			use private slabcaches for its socks
- *              Pedro Hortas	:	New flags field for socket options
+ *		Steve Whitehouse:	Default routines for sock_ops
+ *		Arnaldo C. Melo :	removed net_pinfo, tp_pinfo and made
+ *					protinfo be just a void pointer, as the
+ *					protocol specific parts were moved to
+ *					respective headers and ipv4/v6, etc now
+ *					use private slabcaches for its socks
+ *		Pedro Hortas	:	New flags field for socket options
  */
 #ifndef _NIP_H
 #define _NIP_H
@@ -90,6 +90,8 @@ struct tcp_nip_common {
 	u32 keepalive_time_bak;
 	u32 keepalive_probes_bak;
 	u32 keepalive_intvl_bak;
+	u32 nip_srtt;
+	u32 nip_bw;
 };
 
 struct tcp_nip_request_sock {
