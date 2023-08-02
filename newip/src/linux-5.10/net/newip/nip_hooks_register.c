@@ -57,7 +57,6 @@ int __init ninet_hooks_init(void)
 {
 	nip_ninet_ehashfn_lhck_register();
 	nip_ninet_gifconf_lhck_register();
-
 	return 0;
 }
 
