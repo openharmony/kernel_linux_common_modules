@@ -1523,19 +1523,11 @@ static void __tcp_nip_ack_calc_ssthresh_default(struct tcp_nip_common *ntp, u32 
 	ntp->nip_ssthresh =  nip_ssthresh;
 }
 
-static void __tcp_nip_ack_calc_ssthresh(struct tcp_nip_common *ntp, struct tcp_sock *tp,
-					u32 rtt_tstamp,
-					struct inet_connection_sock *icsk, u32 ack,
-					int icsk_rto_last)
+static void __tcp_nip_ack_calc_ssthresh(struct tcp_nip_common *ntp, u32 rtt_tstamp,
+					u32 icsk_rto, u32 ack, int icsk_rto_last)
 {
-	update_nip_bw(&ntp->nip_bw, tp, rtt_tstamp);
-	if (ntp->nip_bw < get_nip_br_max_bw()) {
-		__tcp_nip_ack_calc_ssthresh_bw(ntp, rtt_tstamp, icsk->icsk_rto, ack);
-		return;
-	}
-
 	if (rtt_tstamp >= get_rtt_tstamp_rto_up())
-		__tcp_nip_ack_calc_ssthresh_rto_up(ntp, rtt_tstamp, icsk->icsk_rto,
+		__tcp_nip_ack_calc_ssthresh_rto_up(ntp, rtt_tstamp, icsk_rto,
 						   ack, icsk_rto_last);
 	else if (rtt_tstamp >= get_rtt_tstamp_high())
 		__tcp_nip_ack_calc_ssthresh_rtt_high(ntp, rtt_tstamp, ack);
@@ -1564,7 +1556,13 @@ static void tcp_nip_ack_calc_ssthresh(struct sock *sk, u32 ack, int icsk_rto_las
 		if (skb_snd_tstamp) {
 			u32 rtt_tstamp = tp->rcv_tstamp - skb_snd_tstamp;
 
-			__tcp_nip_ack_calc_ssthresh(ntp, tp, rtt_tstamp, icsk, ack, icsk_rto_last);
+			update_nip_bw(&ntp->nip_bw, tp, rtt_tstamp);
+			if (ntp->nip_bw < get_nip_br_max_bw())
+				__tcp_nip_ack_calc_ssthresh_bw(ntp, rtt_tstamp, icsk->icsk_rto,
+							       ack);
+			else
+				__tcp_nip_ack_calc_ssthresh(ntp, rtt_tstamp, icsk->icsk_rto,
+							    ack, icsk_rto_last);
 		}
 	}
 }

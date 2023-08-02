@@ -22,7 +22,6 @@
 #define bt_dev_path_to_file(idx) bt_dev_path(idx)
 #define bt_virnet_name(idx) (BT_VIRNET_NAME_PREFIX#idx)
 
-#define BT_PATHNAME_MAX 256
 #define BT_VIRNET_MAX_NUM 16
 #define BT_VIRNET_DATA_HEAD_LEN 2
 
@@ -43,7 +42,7 @@
  */
 struct bt_uioc_args {
 	char ifa_name[IFNAMSIZ];
-	char cfile_name[BT_PATHNAME_MAX];
+	char cfile_name[IFNAMSIZ];
 };
 
 #endif
