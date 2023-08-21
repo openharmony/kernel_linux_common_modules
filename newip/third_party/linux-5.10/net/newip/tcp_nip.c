@@ -407,6 +407,8 @@
 #define TCP_WINDOW_RAISE_THRESHOLD  2
 #define TCP_BACKLOG_HEADROOM        (64 * 1024)
 #define BYTES_PER_TCP_HEADER        4
+#define TRUE                        1
+#define FALSE                       0
 
 static const struct inet_connection_sock_af_ops newip_specific;
 
@@ -523,6 +525,7 @@ void tcp_nip_close(struct sock *sk, long timeout)
 
 	if (data_was_unread) {
 		tcp_set_state(sk, TCP_CLOSE);
+		nip_sock_debug(sk, __func__, TRUE);
 		tcp_nip_send_active_reset(sk, sk->sk_allocation);
 	} else if (tcp_nip_close_state(sk)) {
 		/* RED-PEN. Formally speaking, we have broken TCP state
@@ -533,6 +536,7 @@ void tcp_nip_close(struct sock *sk, long timeout)
 		 * TCP_CLOSE_WAIT -> TCP_LAST_ACK
 		 */
 		nip_dbg("ready to send fin, sk_state=%d", sk->sk_state);
+		nip_sock_debug(sk, __func__, TRUE);
 		tcp_nip_send_fin(sk);
 	}
 
@@ -718,13 +722,16 @@ static int tcp_nip_connect(struct sock *sk, struct sockaddr *uaddr,
 	err = __tcp_nip_connect(sk);
 	if (err)
 		goto late_failure;
-
+	nip_sock_debug(sk, __func__, TRUE);
 	return 0;
 
 /* failure after tcp_set_state(sk, TCP_SYN_SENT) */
 late_failure:
 	tcp_set_state(sk, TCP_CLOSE);
 failure:
+	nip_sock_debug_output(&usin->sin_addr, &sk->SK_NIP_RCV_SADDR,
+			      usin->sin_port, inet->inet_sport,
+			      __func__, FALSE);
 	sk->sk_route_caps = 0;
 	inet->inet_dport = 0;
 	return err;
@@ -1713,7 +1720,7 @@ static int tcp_nip_rcv(struct sk_buff *skb)
 {
 	const struct tcphdr *th;
 	bool refcounted;
-	struct sock *sk;
+	struct sock *sk = NULL;
 	int ret;
 	int dif = skb->skb_iif;
 
@@ -1814,13 +1821,15 @@ put_and_return:
 
 no_tcp_socket:
 	tcp_nip_send_reset(NULL, skb);
-	goto discard_it;
+
 discard_it:
 	kfree_skb(skb);
+	nip_sock_debug(sk, __func__, FALSE);
 	return 0;
 
 discard_and_relse:
 	sk_drops_add(sk, skb);
+	nip_sock_debug(sk, __func__, FALSE);
 	if (refcounted)
 		sock_put(sk);
 	goto discard_it;
