@@ -23,6 +23,7 @@
 #include <net/nip_udp.h>
 #include <net/route.h>
 #include <net/nip_fib.h>
+#include <net/nip_addrconf.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/skbuff.h>
@@ -175,5 +176,33 @@ int nip_getsockopt(struct sock *sk, int level,
 		   int optname, char __user *optval, int __user *optlen)
 {
 	return do_nip_getsockopt(sk, level, optname, optval, optlen);
+}
+
+void nip_sock_debug_output(const struct nip_addr *nip_daddr, const struct nip_addr *nip_saddr,
+			   __be16 dport, __be16 sport,
+			   const char *name, int state)
+{
+	if (get_nip_debug()) {
+		char saddr[NIP_ADDR_BIT_LEN_MAX] = {0};
+		char daddr[NIP_ADDR_BIT_LEN_MAX] = {0};
+
+		nip_addr_to_str(nip_daddr, daddr, NIP_ADDR_BIT_LEN_MAX);
+		nip_addr_to_str(nip_saddr, saddr, NIP_ADDR_BIT_LEN_MAX);
+
+		nip_dbg("%s :%s (saddr=%s, daddr=%s, sport=%u, dport=%u)",
+			name, state ? "success" : "failed", saddr, daddr,
+			ntohs(sport), ntohs(dport));
+	}
+}
+
+void nip_sock_debug(const struct sock *sk, const char *name, int state)
+{
+	if (sk) {
+		struct inet_sock *inet = inet_sk(sk);
+
+		nip_sock_debug_output(&sk->SK_NIP_DADDR, &sk->SK_NIP_RCV_SADDR,
+				      inet->inet_dport, inet->inet_sport,
+				      name, state);
+	}
 }
 
