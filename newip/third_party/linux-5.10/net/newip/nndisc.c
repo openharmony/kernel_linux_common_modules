@@ -579,7 +579,7 @@ int nndisc_rcv_na(struct sk_buff *skb)
 	}
 	len = *p;
 	if (len > MAX_ADDR_LEN) {
-		nip_dbg("Invalid length,  drop the packet(len=%u)", len);
+		nip_dbg("invalid length,  drop the packet(len=%u)", len);
 		kfree_skb(skb);
 		return 0;
 	}

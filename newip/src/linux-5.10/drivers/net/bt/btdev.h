@@ -221,6 +221,9 @@ static inline const char *bt_virnet_get_ndev_name(const struct bt_virnet *vn)
 
 static inline const char *bt_virnet_get_state_rep(const struct bt_virnet *vn)
 {
+	if (unlikely(vn->state > BT_VIRNET_STAET_NUM))
+		return g_bt_virnet_state_rep[BT_VIRNET_STATE_DELETED];
+
 	return g_bt_virnet_state_rep[vn->state];
 }
 

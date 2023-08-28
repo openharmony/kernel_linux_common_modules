@@ -487,7 +487,7 @@ static int ninet_compat_routing_ioctl(struct sock *sk, unsigned int cmd,
 {
 	struct nip_rtmsg rt;
 
-	if (copy_from_user(&rt.rtmsg_dst, &ur->rtmsg_dst, 3 * sizeof(struct nip_addr)) ||
+	if (copy_from_user(&rt.rtmsg_dst, &ur->rtmsg_dst, INDEX_3 * sizeof(struct nip_addr)) ||
 	    copy_from_user(&rt.dev_name, &ur->dev_name, sizeof(rt.dev_name)) ||
 	    get_user(rt.rtmsg_type, &ur->rtmsg_type) ||
 	    get_user(rt.rtmsg_ifindex, &ur->rtmsg_ifindex) ||

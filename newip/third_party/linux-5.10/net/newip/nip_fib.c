@@ -88,6 +88,7 @@ struct nip_fib_node *nip_fib_locate(struct hlist_head *nip_tb_head,
 	struct hlist_head *h;
 	unsigned int hash;
 
+	/* hash calc ensures that the hash index is valid without memory overruns */
 	hash = ninet_route_hash(daddr);
 	h = &nip_tb_head[hash];
 
@@ -97,6 +98,7 @@ struct nip_fib_node *nip_fib_locate(struct hlist_head *nip_tb_head,
 	}
 
 	/* find default route */
+	/* hash calc ensures that the hash index is valid without memory overruns */
 	hash = ninet_route_hash(&nip_any_addr);
 	h = &nip_tb_head[hash];
 
@@ -139,6 +141,7 @@ int nip_fib_add(struct nip_fib_table *table, struct nip_rt_info *rt)
 	char dst[NIP_ADDR_BIT_LEN_MAX] = {0};
 	char gateway[NIP_ADDR_BIT_LEN_MAX] = {0};
 
+	/* hash calc ensures that the hash index is valid without memory overruns */
 	hash = ninet_route_hash(&rt->rt_dst);
 	h = &table->nip_tb_head[hash];
 
