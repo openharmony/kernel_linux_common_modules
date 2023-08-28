@@ -262,7 +262,7 @@ static u16 nip_tcp_select_window(struct sock *sk)
 	if (!tp->rx_opt.rcv_wscale && sock_net(sk)->ipv4.sysctl_tcp_workaround_signed_windows)
 		new_win = min(new_win, MAX_TCP_WINDOW);
 	else
-		new_win = min(new_win, (65535U << tp->rx_opt.rcv_wscale));
+		new_win = min(new_win, (TCP_NIP_WINDOW_MAX << tp->rx_opt.rcv_wscale));
 
 	/* RFC1323 Scaling Applied.
 	 * Scaling the receive window so that it can represent up to 30 bits
@@ -392,7 +392,7 @@ static __u16 tcp_nip_advertise_mss(struct sock *sk)
 			tp->advmss = mss;
 		}
 
-		mtu = dst_mtu(dst);
+		mtu = dst_mtu(dst); /* NIP_MIN_MTU */
 		nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &sk->SK_NIP_RCV_SADDR,
 					      &sk->SK_NIP_DADDR);
 		nip_hdr_len = nip_hdr_len == 0 ? NIP_HDR_MAX : nip_hdr_len;
@@ -693,7 +693,7 @@ unsigned int tcp_nip_current_mss(struct sock *sk)
 	mss_now = tp->mss_cache;
 
 	if (dst) {
-		u32 mtu = dst_mtu(dst);
+		u32 mtu = dst_mtu(dst); /* NIP_MIN_MTU */
 
 		if (mtu != inet_csk(sk)->icsk_pmtu_cookie)
 			mss_now = tcp_nip_sync_mss(sk, mtu);
@@ -758,7 +758,7 @@ static int get_nip_mss(const struct sock *sk, struct dst_entry *dst, struct requ
 	if (user_mss && user_mss < mss)
 		mss = user_mss;
 
-	mtu = dst_mtu(dst);
+	mtu = dst_mtu(dst); /* NIP_MIN_MTU */
 	nip_hdr_len = get_nip_hdr_len(NIP_HDR_COMM, &ireq->IR_NIP_LOC_ADDR, &ireq->IR_NIP_RMT_ADDR);
 	nip_hdr_len = nip_hdr_len == 0 ? NIP_HDR_MAX : nip_hdr_len;
 	nip_mss = mtu - nip_hdr_len - sizeof(struct tcphdr);
@@ -843,13 +843,13 @@ struct sk_buff *tcp_nip_make_synack(const struct sock *sk, struct dst_entry *dst
 	th->ack_seq = htonl(tcp_rsk(req)->rcv_nxt);
 	th->check = 0;
 
-	th->window = htons(min(req->rsk_rcv_wnd, 65535U));
+	th->window = htons(min(req->rsk_rcv_wnd, TCP_NIP_WINDOW_MAX));
 
 	tcp_nip_options_write((__be32 *)(th + 1), NULL, &opts);
 	/* TCP data offset, divided by 4 because doff is a 32-bit word
 	 * That is, words four bytes long are counted in units
 	 */
-	th->doff = (tcp_header_size >> 2);
+	th->doff = (tcp_header_size >> TCP_NUM_2);
 	__TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
 
 	/* Fill in checksum */
