@@ -407,8 +407,6 @@
 #define TCP_WINDOW_RAISE_THRESHOLD  2
 #define TCP_BACKLOG_HEADROOM        (64 * 1024)
 #define BYTES_PER_TCP_HEADER        4
-#define TRUE                        1
-#define FALSE                       0
 
 static const struct inet_connection_sock_af_ops newip_specific;
 
@@ -525,7 +523,7 @@ void tcp_nip_close(struct sock *sk, long timeout)
 
 	if (data_was_unread) {
 		tcp_set_state(sk, TCP_CLOSE);
-		nip_sock_debug(sk, __func__, TRUE);
+		nip_sock_debug(sk, __func__);
 		tcp_nip_send_active_reset(sk, sk->sk_allocation);
 	} else if (tcp_nip_close_state(sk)) {
 		/* RED-PEN. Formally speaking, we have broken TCP state
@@ -536,7 +534,7 @@ void tcp_nip_close(struct sock *sk, long timeout)
 		 * TCP_CLOSE_WAIT -> TCP_LAST_ACK
 		 */
 		nip_dbg("ready to send fin, sk_state=%d", sk->sk_state);
-		nip_sock_debug(sk, __func__, TRUE);
+		nip_sock_debug(sk, __func__);
 		tcp_nip_send_fin(sk);
 	}
 
@@ -722,7 +720,7 @@ static int tcp_nip_connect(struct sock *sk, struct sockaddr *uaddr,
 	err = __tcp_nip_connect(sk);
 	if (err)
 		goto late_failure;
-	nip_sock_debug(sk, __func__, TRUE);
+	nip_sock_debug(sk, __func__);
 	return 0;
 
 /* failure after tcp_set_state(sk, TCP_SYN_SENT) */
@@ -730,8 +728,7 @@ late_failure:
 	tcp_set_state(sk, TCP_CLOSE);
 failure:
 	nip_sock_debug_output(&usin->sin_addr, &sk->SK_NIP_RCV_SADDR,
-			      usin->sin_port, inet->inet_sport,
-			      __func__, FALSE);
+			      usin->sin_port, inet->inet_sport, __func__);
 	sk->sk_route_caps = 0;
 	inet->inet_dport = 0;
 	return err;
@@ -1710,6 +1707,26 @@ static bool tcp_nip_add_backlog(struct sock *sk, struct sk_buff *skb)
 	return false;
 }
 
+static int nip_skb_precheck(struct sk_buff *skb)
+{
+	if (!pskb_may_pull(skb, sizeof(struct tcphdr))) {
+		nip_dbg("invalid tcp packet length, drop the packet(skb->len=%u)", skb->len);
+		return -EINVAL;
+	}
+
+	if (skb->pkt_type != PACKET_HOST) {
+		nip_dbg("unknown pkt-type(%u), drop skb", skb->pkt_type);
+		return -EINVAL;
+	}
+
+	if (!nip_get_tcp_input_checksum(skb)) {
+		nip_dbg("checksum fail, drop skb");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* Function
  *    TCP is the gateway from the network layer to the transport layer
  *    and receives data packets from the network layer
@@ -1724,15 +1741,8 @@ static int tcp_nip_rcv(struct sk_buff *skb)
 	int ret;
 	int dif = skb->skb_iif;
 
-	if (skb->pkt_type != PACKET_HOST) {
-		nip_dbg("unknown pkt-type(%u), drop skb", skb->pkt_type);
+	if (nip_skb_precheck(skb))
 		goto discard_it;
-	}
-
-	if (!nip_get_tcp_input_checksum(skb)) {
-		nip_dbg("checksum fail, drop skb");
-		goto discard_it;
-	}
 
 	th = (const struct tcphdr *)skb->data;
 
@@ -1824,12 +1834,12 @@ no_tcp_socket:
 
 discard_it:
 	kfree_skb(skb);
-	nip_sock_debug(sk, __func__, FALSE);
+	nip_sock_debug(sk, __func__);
 	return 0;
 
 discard_and_relse:
 	sk_drops_add(sk, skb);
-	nip_sock_debug(sk, __func__, FALSE);
+	nip_sock_debug(sk, __func__);
 	if (refcounted)
 		sock_put(sk);
 	goto discard_it;

@@ -133,10 +133,9 @@ int nip_setsockopt(struct sock *sk, int level, int optname, sockptr_t optval,
 		   unsigned int optlen);
 int nip_getsockopt(struct sock *sk, int level,
 		   int optname, char __user *optval, int __user *optlen);
-void nip_sock_debug(const struct sock *sk, const char *name, int state);
+void nip_sock_debug(const struct sock *sk, const char *name);
 void nip_sock_debug_output(const struct nip_addr *nip_daddr, const struct nip_addr *nip_saddr,
-			   __be16 dport, __be16 sport,
-			   const char *name, int state);
+			   __be16 dport, __be16 sport, const char *name);
 
 /* functions defined in nip_addrconf.c */
 int nip_addrconf_get_ifaddr(struct net *net, unsigned int cmd, void __user *arg);
