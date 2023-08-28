@@ -45,9 +45,16 @@
 int nip_icmp_rcv(struct sk_buff *skb)
 {
 	int ret = 0;
-	struct nip_icmp_hdr *hdr = nip_icmp_header(skb);
-	u8 type = hdr->nip_icmp_type;
+	struct nip_icmp_hdr *hdr;
+	u8 type;
 
+	if (!pskb_may_pull(skb, sizeof(struct nip_icmp_hdr))) {
+		nip_dbg("invalid ICMP packet");
+		return -EINVAL;
+	}
+
+	hdr = nip_icmp_header(skb);
+	type = hdr->nip_icmp_type;
 	nip_dbg("rcv newip icmp packet. type=%u", type);
 	switch (type) {
 	case NIP_ARP_NS:

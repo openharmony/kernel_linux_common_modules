@@ -403,21 +403,26 @@ unsigned char *build_nip_addr(const struct nip_addr *addr, unsigned char *buf)
 	return p;
 }
 
-unsigned char *decode_nip_addr(unsigned char *buf, struct nip_addr *addr)
+unsigned char *decode_nip_addr(struct nip_buff *nbuf, struct nip_addr *addr)
 {
 	int i;
 	int ret;
 	int addr_len;
-	unsigned char *p = buf;
 
-	addr->NIP_ADDR_FIELD8[0] = *p;
+	if (nbuf->remaining_len < sizeof(unsigned char))
+		return 0;
+
+	addr->NIP_ADDR_FIELD8[0] = *nbuf->data;
 	addr_len = get_nip_addr_len(addr);
 	if (addr_len == 0)
 		return 0;
 
+	if (nbuf->remaining_len < addr_len)
+		return 0;
+
 	for (i = 0; i < addr_len; i++) {
-		addr->NIP_ADDR_FIELD8[i] = *p;
-		p++;
+		addr->NIP_ADDR_FIELD8[i] = *nbuf->data;
+		nip_buff_pull(nbuf, sizeof(unsigned char));
 	}
 	addr->bitlen = addr_len * NIP_ADDR_BIT_LEN_8;
 
@@ -425,6 +430,6 @@ unsigned char *decode_nip_addr(unsigned char *buf, struct nip_addr *addr)
 	if (ret)
 		return 0;
 
-	return p;
+	return nbuf->data;
 }
 
