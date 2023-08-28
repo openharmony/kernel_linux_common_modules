@@ -179,8 +179,7 @@ int nip_getsockopt(struct sock *sk, int level,
 }
 
 void nip_sock_debug_output(const struct nip_addr *nip_daddr, const struct nip_addr *nip_saddr,
-			   __be16 dport, __be16 sport,
-			   const char *name, int state)
+			   __be16 dport, __be16 sport, const char *name)
 {
 	if (get_nip_debug()) {
 		char saddr[NIP_ADDR_BIT_LEN_MAX] = {0};
@@ -189,20 +188,18 @@ void nip_sock_debug_output(const struct nip_addr *nip_daddr, const struct nip_ad
 		nip_addr_to_str(nip_daddr, daddr, NIP_ADDR_BIT_LEN_MAX);
 		nip_addr_to_str(nip_saddr, saddr, NIP_ADDR_BIT_LEN_MAX);
 
-		nip_dbg("%s :%s (saddr=%s, daddr=%s, sport=%u, dport=%u)",
-			name, state ? "success" : "failed", saddr, daddr,
-			ntohs(sport), ntohs(dport));
+		nip_dbg("%s (saddr=%s, daddr=%s, sport=%u, dport=%u)",
+			name, saddr, daddr, ntohs(sport), ntohs(dport));
 	}
 }
 
-void nip_sock_debug(const struct sock *sk, const char *name, int state)
+void nip_sock_debug(const struct sock *sk, const char *name)
 {
 	if (sk) {
 		struct inet_sock *inet = inet_sk(sk);
 
 		nip_sock_debug_output(&sk->SK_NIP_DADDR, &sk->SK_NIP_RCV_SADDR,
-				      inet->inet_dport, inet->inet_sport,
-				      name, state);
+				      inet->inet_dport, inet->inet_sport, name);
 	}
 }
 

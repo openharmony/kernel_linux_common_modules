@@ -495,16 +495,27 @@ out:
 
 int nndisc_rcv_ns(struct sk_buff *skb)
 {
-	struct nnd_msg *msg = (struct nnd_msg *)skb_transport_header(skb);
-	u_char *p = msg->data;
+	struct nnd_msg *msg;
+	u_char *p;
 	u_char *lladdr;
 	struct nip_addr addr = {0};
 	struct neighbour *neigh;
 	struct ethhdr *eth;
 	struct net_device *dev = skb->dev;
 	int err = 0;
+	struct nip_buff nbuf;
 
-	p = decode_nip_addr(p, &addr);
+	if (!pskb_may_pull(skb, sizeof(struct nnd_msg))) {
+		nip_dbg("invalid ns packet");
+		err = -EFAULT;
+		goto out;
+	}
+
+	msg = (struct nnd_msg *)skb->data;
+	nbuf.data = msg->data;
+	nbuf.remaining_len = skb->len - sizeof(struct nip_icmp_hdr);
+
+	p = decode_nip_addr(&nbuf, &addr);
 	if (!p) {
 		nip_dbg("failure when decode source address");
 		err = -EFAULT;
@@ -526,7 +537,7 @@ int nndisc_rcv_ns(struct sk_buff *skb)
 	lladdr = eth->h_source;
 
 	/* checksum parse */
-	if (!nip_get_nndisc_rcv_checksum(skb, p)) {
+	if (!nip_get_nndisc_rcv_checksum(skb, nbuf.data)) {
 		nip_dbg("ns ICMP checksum failed, drop the packet");
 		err = -EINVAL;
 		goto out;
@@ -546,16 +557,40 @@ out:
 
 int nndisc_rcv_na(struct sk_buff *skb)
 {
-	struct nnd_msg *msg = (struct nnd_msg *)skb_transport_header(skb);
-	u_char *p = msg->data;
+	struct nnd_msg *msg;
+	u_char *p;
 	u_char len;
 	u8 lladdr[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
 	struct net_device *dev = skb->dev;
 	struct neighbour *neigh;
 
+	if (!pskb_may_pull(skb, sizeof(struct nnd_msg))) {
+		nip_dbg("invalid na packet");
+		kfree_skb(skb);
+		return -EINVAL;
+	}
+
+	msg = (struct nnd_msg *)skb->data;
+	p = msg->data;
+	if (skb->len - sizeof(struct nip_icmp_hdr) < sizeof(unsigned char)) {
+		nip_dbg("invalid msg data");
+		kfree_skb(skb);
+		return -EINVAL;
+	}
 	len = *p;
+	if (len > MAX_ADDR_LEN) {
+		nip_dbg("Invalid length,  drop the packet(len=%u)", len);
+		kfree_skb(skb);
+		return 0;
+	}
+
 	p++;
 	memset(lladdr, 0, ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)));
+	if (skb->len - sizeof(struct nip_icmp_hdr) - sizeof(unsigned char) < len) {
+		nip_dbg("invalid msg data");
+		kfree_skb(skb);
+		return -EINVAL;
+	}
 	memcpy(lladdr, p, len);
 
 	if (!nip_get_nndisc_rcv_checksum(skb, p + len)) {

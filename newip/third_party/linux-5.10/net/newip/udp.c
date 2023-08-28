@@ -362,13 +362,27 @@ bool nip_get_udp_input_checksum(struct sk_buff *skb)
 int nip_udp_input(struct sk_buff *skb)
 {
 	struct sock *sk;
-	int rc = 0;
-	struct udphdr *udphead = udp_hdr(skb);
+	int rc = -EINVAL;
+	struct udphdr *udphead;
+
+	if (!pskb_may_pull(skb, sizeof(struct udphdr))) {
+		nip_dbg("invalid skb length, drop the packet(skb->len=%u)", skb->len);
+		kfree_skb(skb);
+		goto end;
+	}
+
+	udphead = udp_hdr(skb);
+	if (ntohs(udphead->len) < sizeof(struct udphdr) ||
+	    ntohs(udphead->len) > skb->len) {
+		nip_dbg("invalid udp packet length, drop the packet(udphead->len=%u)",
+			ntohs(udphead->len));
+		kfree_skb(skb);
+		goto end;
+	}
 
 	if (!nip_get_udp_input_checksum(skb)) {
 		nip_dbg("checksum failed, drop the packet");
 		kfree_skb(skb);
-		rc = -1;
 		goto end;
 	}
 
@@ -378,7 +392,6 @@ int nip_udp_input(struct sk_buff *skb)
 		nip_dbg("dport not match, drop the packet. sport=%u, dport=%u, data_len=%u",
 			ntohs(udphead->source), ntohs(udphead->dest), ntohs(udphead->len));
 		kfree_skb(skb);
-		rc = -1;
 		goto end;
 	}
 

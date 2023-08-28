@@ -109,12 +109,26 @@ enum nip_index {
 extern const struct nip_addr nip_any_addr;
 extern const struct nip_addr nip_broadcast_addr_arp;
 
+struct nip_buff {
+	unsigned char *data;
+	unsigned int remaining_len;
+};
+
+static inline void nip_buff_pull(struct nip_buff *nbuf, unsigned int len)
+{
+	if (len > nbuf->remaining_len)
+		return;
+
+	nbuf->data += len;
+	nbuf->remaining_len -= len;
+}
+
 int nip_addr_invalid(const struct nip_addr *addr);
 int nip_addr_public(const struct nip_addr *addr);
 int nip_addr_any(const struct nip_addr *addr);
 int get_nip_addr_len(const struct nip_addr *addr);
 unsigned char *build_nip_addr(const struct nip_addr *addr, unsigned char *buf);
-unsigned char *decode_nip_addr(unsigned char *buf, struct nip_addr *addr);
+unsigned char *decode_nip_addr(struct nip_buff *nbuf, struct nip_addr *addr);
 int is_nip_local_addr(const struct nip_addr *addr);
 
 #endif /* _UAPI_NEWIP_ADDR_H */
