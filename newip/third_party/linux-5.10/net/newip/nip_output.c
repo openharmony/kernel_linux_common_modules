@@ -54,15 +54,18 @@ void update_memory_rate(const char *upper_fun)
 	struct sysinfo mem_info;
 	unsigned long total;
 	unsigned long free;
-	unsigned long used;
 	unsigned int uint_kb;
 
 	si_meminfo(&mem_info);
 	uint_kb = mem_info.mem_unit / NIP_BIT_TO_BYTE;
 	total = (unsigned long)mem_info.totalram * uint_kb;
 	free = (unsigned long)mem_info.freeram * uint_kb;
-	used = total - free;
-	nip_dbg("%s call cur-func mem total: %ld KB, mem used: %ld KB", upper_fun, total, used);
+	if (total > free)
+		nip_dbg("%s call cur-func mem total: %ld KB, mem used: %ld KB",
+			upper_fun, total, total - free);
+	else
+		nip_dbg("%s call cur-func mem total: %ld KB, mem free: %ld KB",
+			upper_fun, total, free);
 }
 
 int nip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
