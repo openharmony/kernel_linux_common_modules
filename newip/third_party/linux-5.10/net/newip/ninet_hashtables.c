@@ -241,7 +241,8 @@ static void ninet_unhash2(struct inet_hashinfo *h, struct sock *sk)
 
 	spin_lock(&ilb2->lock);
 	hlist_del_init_rcu(&inet_csk(sk)->icsk_listen_portaddr_node);
-	ilb2->count--;
+	if (ilb2->count)
+		ilb2->count--;
 	spin_unlock(&ilb2->lock);
 }
 
@@ -254,7 +255,8 @@ static void __ninet_unhash(struct sock *sk, struct inet_listen_hashbucket *ilb)
 		struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
 
 		ninet_unhash2(hashinfo, sk);
-		ilb->count--;
+		if (ilb->count)
+			ilb->count--;
 	}
 	__sk_nulls_del_node_init_rcu(sk);
 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
@@ -311,10 +313,9 @@ struct sock *__ninet_lookup_established(struct net *net,
 	const struct hlist_nulls_node *node;
 
 	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
-
+	/* mask ensures that the hash index is valid without memory overruns */
 	unsigned int hash = ninet_ehashfn(net, daddr, hnum, saddr, sport);
 	unsigned int slot = hash & hashinfo->ehash_mask;
-
 	struct inet_ehash_bucket *head = &hashinfo->ehash[slot];
 
 begin:
@@ -434,7 +435,7 @@ struct sock *ninet_lookup_listener(struct net *net,
 				     saddr, sport, &nip_any_addr, hnum,
 				     dif, sdif);
 done:
-	if (IS_ERR(result))
+	if (IS_ERR_OR_NULL(result))
 		return NULL;
 	return result;
 }

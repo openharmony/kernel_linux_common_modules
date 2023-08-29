@@ -34,7 +34,7 @@
  */
 #define NIP_HDR_MAX 24
 #define NIP_UDP_HDR_LEN 8
-#define NIP_MIN_MTU (NIP_HDR_MAX + NIP_UDP_HDR_LEN)
+#define NIP_MIN_MTU (NIP_HDR_MAX + 20)  // NewIP hdr + TCP hdr
 #define NIP_BYTE_ALIGNMENT 2
 
 #define NIP_BITMAP_HAVE_MORE_BIT     0x01

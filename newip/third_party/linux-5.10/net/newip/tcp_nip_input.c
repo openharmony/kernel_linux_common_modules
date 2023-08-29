@@ -297,7 +297,7 @@ static bool tcp_nip_ooo_try_coalesce(struct sock *sk,
 
 		nip_dbg("(to)->gso_segs %u, (from)->gso_segs %u", skb_shinfo(to)->gso_segs,
 			skb_shinfo(from)->gso_segs);
-		skb_shinfo(to)->gso_segs = min_t(u32, gso_segs, 0xFFFF);
+		skb_shinfo(to)->gso_segs = min_t(u32, gso_segs, TCP_NIP_WINDOW_MAX);
 		nip_dbg("gso_segs %u to %u", to_gso_segs, skb_shinfo(to)->gso_segs);
 	}
 	return res;
@@ -894,7 +894,7 @@ void tcp_nip_parse_options(const struct sk_buff *skb,
 	const unsigned char *ptr;
 	const struct tcphdr *th = tcp_hdr(skb);
 	/* The length of the TCP option = Length of TCP header - The length of the TCP structure */
-	int length = (th->doff * 4) - sizeof(struct tcphdr);
+	int length = (th->doff * TCP_NUM_4) - sizeof(struct tcphdr);
 
 	/* A pointer to the option position */
 	ptr = (const unsigned char *)(th + 1);
@@ -912,7 +912,7 @@ void tcp_nip_parse_options(const struct sk_buff *skb,
 			continue;
 		default:
 			opsize = *ptr++;
-			if (opsize < 2) /* "2 - silly options" */
+			if (opsize < TCP_NUM_2) /* "2 - silly options" */
 				return;
 			if (opsize > length)
 				return; /* don't parse partial options */
@@ -1065,7 +1065,7 @@ struct sock *tcp_nip_create_openreq_child(const struct sock *sk,
 		} else {
 			newtp->rx_opt.snd_wscale = 0;
 			newtp->rx_opt.rcv_wscale = 0;
-			newtp->window_clamp = min(newtp->window_clamp, 65535U);
+			newtp->window_clamp = min(newtp->window_clamp, TCP_NIP_WINDOW_MAX);
 		}
 		newtp->snd_wnd = (ntohs(tcp_hdr(skb)->window) <<
 				  newtp->rx_opt.snd_wscale);
@@ -1748,10 +1748,10 @@ discard:
 
 static u32 tcp_default_init_rwnd(u32 mss)
 {
-	u32 init_rwnd = TCP_INIT_CWND * 2;
+	u32 init_rwnd = TCP_INIT_CWND * TCP_NUM_2;
 
 	if (mss > TCP_MAX_MSS)
-		init_rwnd = max((TCP_MAX_MSS * init_rwnd) / mss, 2U);
+		init_rwnd = max((TCP_MAX_MSS * init_rwnd) / mss, (u32)TCP_NUM_2);
 	return init_rwnd;
 }
 
@@ -1880,7 +1880,7 @@ static int tcp_nip_rcv_synsent_state_process(struct sock *sk, struct sk_buff *sk
 		if (!tp->rx_opt.wscale_ok) {
 			tp->rx_opt.snd_wscale = 0;
 			tp->rx_opt.rcv_wscale = 0;
-			tp->window_clamp = min(tp->window_clamp, 65535U);
+			tp->window_clamp = min(tp->window_clamp, TCP_NIP_WINDOW_MAX);
 		}
 
 		if (tp->rx_opt.saw_tstamp) {

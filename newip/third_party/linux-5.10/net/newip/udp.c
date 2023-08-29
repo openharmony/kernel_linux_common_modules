@@ -231,6 +231,7 @@ struct sock *__nip_udp_lib_lookup(struct net *net,
 	struct udp_hslot *hslot2;
 	struct sock *result;
 
+	/* mask ensures that the hash index is valid without memory overruns */
 	hash2 = nip_udp_portaddr_hash(net, daddr, hnum);
 	slot2 = hash2 & udptable->mask;
 	hslot2 = &udptable->hash2[slot2];
@@ -243,6 +244,7 @@ struct sock *__nip_udp_lib_lookup(struct net *net,
 		goto done;
 
 	/* Lookup wildcard sockets */
+	/* mask ensures that the hash index is valid without memory overruns */
 	hash2 = nip_udp_portaddr_hash(net, &nip_any_addr, hnum);
 	slot2 = hash2 & udptable->mask;
 	hslot2 = &udptable->hash2[slot2];

@@ -24,6 +24,9 @@
  */
 void nip_ninet_ehashfn(const struct sock *sk, u32 *ret)
 {
+	if (!sk || !ret)
+		return;
+
 	*ret = ninet_ehashfn(sock_net(sk), &sk->SK_NIP_RCV_SADDR,
 			     sk->sk_num, &sk->SK_NIP_DADDR, sk->sk_dport);
 }
@@ -31,15 +34,15 @@ void nip_ninet_ehashfn(const struct sock *sk, u32 *ret)
 /* call the newip hook function in inet_gifconf function (net\ipv4\devinet.c):
  */
 void nip_ninet_gifconf(struct net_device *dev,
-		       char __user *buf, int len, int size, int *ret)
+		       char __user *buf, int len, int size, int *v4_done)
 {
-	if (*ret >= 0) {
-		int done = ninet_gifconf(dev, buf + *ret, len - *ret, size);
+	if (*v4_done >= 0) {
+		int done = ninet_gifconf(dev, (buf) ? buf + *v4_done : buf, len, size);
 
 		if (done < 0)
-			*ret = done;
+			*v4_done = done;
 		else
-			*ret += done;
+			*v4_done += done;
 	}
 }
 

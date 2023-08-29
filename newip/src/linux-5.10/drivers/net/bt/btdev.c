@@ -195,15 +195,15 @@ static ssize_t bt_io_file_read(struct file *filp,
 		btdev_dbg_err("%s invalid skb", cdev_name(vnet));
 		return -EINVAL;
 	}
-	out_sz = skb->len - MACADDR_LEN;
-	if (unlikely(out_sz > size)) {
+	out_sz = skb->len > MACADDR_LEN ? (skb->len - MACADDR_LEN) : 0;
+	if (unlikely(out_sz > size) || unlikely(out_sz == 0)) {
 		/* Obtain the skb pointer from the ring buf and ask whether the user-state buf
 		 * length can store data in the skb. If the user-state buf length is not enough,
 		 * the skb cannot be released at this time, because the skb is still unchained
 		 * on the ring buf.
 		 */
-		btdev_dbg_err("%s usr-buf too small, skb-len=%ld, usr-buf-len=%ld",
-			      cdev_name(vnet), (long)out_sz, (long)size);
+		btdev_dbg_err("%s usr-buf too small, skb-len=%ld, usr-buf-len=%ld, skb-len=%u",
+			      cdev_name(vnet), (long)out_sz, (long)size, skb->len);
 		return -EINVAL;
 	}
 
@@ -854,8 +854,10 @@ static int bt_ring_is_full(const struct bt_ring *ring)
 static void bt_ring_produce(struct bt_ring *ring, void *data)
 {
 	smp_mb(); // Make sure the read and write order is correct
-	ring->data[ring->head] = data;
-	ring->head = (ring->head + 1) % ring->size;
+	if (likely(ring->head < ring->size)) {
+		ring->data[ring->head] = data;
+		ring->head = (ring->head + 1) % ring->size;
+	}
 	smp_wmb(); // Make sure the write order is correct
 }
 
@@ -863,7 +865,7 @@ static void *bt_ring_current(struct bt_ring *ring)
 {
 	void *data = NULL;
 
-	if (unlikely(!ring))
+	if (unlikely(!ring) || unlikely(ring->tail > ring->size))
 		return data;
 
 	data = ring->data[ring->tail];

@@ -400,6 +400,7 @@
 #include <net/nip_route.h>
 #include <linux/nip.h>
 #include "nip_checksum.h"
+#include "nip_hdr.h"
 #include "tcp_nip_parameter.h"
 
 #define tcp_header_length(th) ((th)->doff << 2)
@@ -449,9 +450,14 @@ bool nip_get_tcp_input_checksum(struct sk_buff *skb)
 
 static int tcp_nip_close_state(struct sock *sk)
 {
-	int next = (int)new_state[sk->sk_state];
-	int ns = next & TCP_STATE_MASK;
+	int next;
+	int ns;
 
+	if (sk->sk_state >= TCP_MAX_STATES)
+		return TCP_ACTION_FIN;
+
+	next = (int)new_state[sk->sk_state];
+	ns = next & TCP_STATE_MASK;
 	tcp_set_state(sk, ns);
 
 	return next & TCP_ACTION_FIN;
@@ -1206,17 +1212,19 @@ static void skb_nip_entail(struct sock *sk, struct sk_buff *skb)
 	sk_mem_charge(sk, skb->truesize);
 }
 
-static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
-				       int large_allowed)
+static unsigned int tcp_nip_xmit_size_goal(struct sock *sk, u32 mss_now,
+					   int large_allowed)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
-	u32 new_size_goal, size_goal;
+	u32 new_size_goal = NIP_MIN_MTU;
+	u32 size_goal;
 
 	if (!large_allowed || !mss_now)
 		return mss_now;
 
 	/* Note : tcp_tso_autosize() will eventually split this later */
-	new_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
+	if (sk->sk_gso_max_size > MAX_TCP_HEADER + 1)
+		new_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
 	new_size_goal = tcp_bound_to_half_wnd(tp, new_size_goal);
 
 	/* We try hard to avoid divides here */
@@ -1236,7 +1244,7 @@ int tcp_nip_send_mss(struct sock *sk, int *size_goal, int flags)
 	int mss_now;
 
 	mss_now = tcp_nip_current_mss(sk);
-	*size_goal = tcp_xmit_size_goal(sk, mss_now, !(flags & MSG_OOB));
+	*size_goal = tcp_nip_xmit_size_goal(sk, mss_now, !(flags & MSG_OOB));
 	return mss_now;
 }
 

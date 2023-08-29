@@ -128,6 +128,15 @@ static inline void _nip_hdr_encap_comm_bitmap(struct nip_hdr_encap *head)
 
 void nip_hdr_udp_encap(struct nip_hdr_encap *head)
 {
+	int len;
+
+	if (!head)
+		return;
+
+	len = get_nip_hdr_len(NIP_HDR_UDP, &head->saddr, &head->daddr);
+	if (len == 0 || len > NIP_HDR_MAX)
+		return;
+
 	/* Encapsulate the bitmap into the newIP packet header BUF */
 #if (NEWIP_BYTE_ALIGNMENT_ENABLE == 1)
 	_nip_hdr_encap_udp_bitmap(head);
@@ -146,6 +155,15 @@ void nip_hdr_udp_encap(struct nip_hdr_encap *head)
 /* need update total len after this func, call nip_update_total_len */
 void nip_hdr_comm_encap(struct nip_hdr_encap *head)
 {
+	int len;
+
+	if (!head)
+		return;
+
+	len = get_nip_hdr_len(NIP_HDR_COMM, &head->saddr, &head->daddr);
+	if (len == 0 || len > NIP_HDR_MAX)
+		return;
+
 	/* Encapsulate the bitmap into the newIP packet header BUF */
 #if (NEWIP_BYTE_ALIGNMENT_ENABLE == 1)
 	_nip_hdr_encap_comm_bitmap(head);
