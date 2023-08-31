@@ -1379,7 +1379,8 @@ static void tcp_nip_dup_ack_retrans(struct sock *sk, const struct sk_buff *skb,
 			 */
 			int mss = tcp_nip_current_mss(sk);
 			struct tcphdr *th = (struct tcphdr *)skb->data;
-			u16 discard_num = htons(th->urg_ptr);
+			u16 discard_num = htons(th->urg_ptr) > PKT_DISCARD_MAX ?
+					  0 : htons(th->urg_ptr);
 			u32 last_nip_ssthresh = ntp->nip_ssthresh;
 
 			if (tp->selective_acks[0].end_seq)
@@ -1729,6 +1730,9 @@ void tcp_nip_rcv_established(struct sock *sk, struct sk_buff *skb,
 	tcp_mstamp_refresh(tp);
 	if (unlikely(!rcu_access_pointer(sk->sk_rx_dst)))
 		inet_csk(sk)->icsk_af_ops->sk_rx_dst_set(sk, skb);
+
+	if (skb->len < (th->doff << 2))
+		return;
 
 	if (!tcp_nip_validate_incoming(sk, skb, th, 1))
 		return;
