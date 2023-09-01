@@ -101,7 +101,7 @@ int nip_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	memset(nipcb(skb), 0, sizeof(struct ninet_skb_parm));
 	offset = nip_hdr_parse(skb->data, skb->len, &niph);
-	if (offset <= 0) {
+	if (offset <= 0 || offset > skb->len) {
 		nip_dbg("check in failure, errcode=%d, Drop a packet (nexthdr=%u, hdr_len=%u)",
 			offset, niph.nexthdr, niph.hdr_len);
 		goto drop;

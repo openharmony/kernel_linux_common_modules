@@ -1758,6 +1758,8 @@ static int tcp_nip_rcv(struct sk_buff *skb)
 		nip_dbg("non-four byte alignment, drop skb");
 		goto discard_it;
 	}
+	if (!pskb_may_pull(skb, th->doff * 4))
+		goto discard_it;
 
 	sk = __ninet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th),
 				th->source, th->dest, dif, &refcounted);
