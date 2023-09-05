@@ -797,29 +797,67 @@ static void tcp_nip_reqsk_destructor(struct request_sock *req)
 	;
 }
 
+static void tcp_nip_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+			    struct request_sock *req)
+{
+}
+
+static void tcp_nip_reqsk_send_reset(const struct sock *sk, struct sk_buff *skb)
+{
+}
+
+static void tcp_nip_reqsk_syn_ack_timeout(const struct request_sock *req)
+{
+}
+
 struct request_sock_ops tcp_nip_request_sock_ops __read_mostly = {
-	.family		=	AF_NINET,
-	.obj_size	=	sizeof(struct tcp_nip_request_sock),
-	.rtx_syn_ack	=	tcp_nip_rtx_synack,
-	.send_ack	=	NULL,
-	.destructor	=	tcp_nip_reqsk_destructor,
-	.send_reset	=	NULL,
-	.syn_ack_timeout =	NULL,
+	.family		 =	AF_NINET,
+	.obj_size	 =	sizeof(struct tcp_nip_request_sock),
+	.rtx_syn_ack	 =	tcp_nip_rtx_synack,
+	.send_ack	 =	tcp_nip_reqsk_send_ack,
+	.destructor	 =	tcp_nip_reqsk_destructor,
+	.send_reset	 =	tcp_nip_reqsk_send_reset,
+	.syn_ack_timeout =	tcp_nip_reqsk_syn_ack_timeout,
 };
+
+static int nip_calc_md5_hash(char *location, const struct tcp_md5sig_key *md5,
+		      const struct sock *sk, const struct sk_buff *skb)
+{
+	return -EINVAL;
+}
+
+static struct tcp_md5sig_key *nip_req_md5_lookup(const struct sock *sk,
+					  const struct sock *addr_sk)
+{
+	return NULL;
+}
+
+#ifdef CONFIG_SYN_COOKIES
+static __u32 nip_cookie_init_seq(const struct sk_buff *skb, __u16 *mss)
+{
+	return 0;
+}
+#endif
+
+static u32 tcp_nip_init_ts_off(const struct net *net, const struct sk_buff *skb)
+{
+	return 0;
+}
 
 static const struct tcp_request_sock_ops tcp_request_sock_newip_ops = {
 	.mss_clamp	=	TCP_BASE_MSS,
 #ifdef CONFIG_TCP_MD5SIG
-	.req_md5_lookup	=	NULL,
-	.calc_md5_hash	=	NULL,
+	.req_md5_lookup	=	nip_req_md5_lookup,
+	.calc_md5_hash	=	nip_calc_md5_hash,
 #endif
 	.init_req	=	tcp_nip_init_req,
 #ifdef CONFIG_SYN_COOKIES
-	.cookie_init_seq =	NULL,
+	.cookie_init_seq =	nip_cookie_init_seq,
 #endif
 	.route_req	=	tcp_nip_route_req,
 	.init_seq	=	tcp_nip_init_sequence,
 	.send_synack	=	tcp_nip_send_synack,
+	.init_ts_off	=	tcp_nip_init_ts_off,
 };
 
 /* Function
@@ -945,21 +983,37 @@ put_and_exit:
 	goto out;
 }
 
-static const struct inet_connection_sock_af_ops newip_specific = {
-	.queue_xmit	   = tcp_nip_queue_xmit,
-	.send_check	   = NULL,
-	.rebuild_header	   = NULL,
-	.sk_rx_dst_set	   = ninet_sk_rx_dst_set,
-	.conn_request	   = tcp_nip_conn_request,
-	.syn_recv_sock	   = tcp_nip_syn_recv_sock,
-	.net_header_len	   = 0,
-	.net_frag_header_len = 0,
-	.setsockopt	   = nip_setsockopt,
-	.getsockopt	   = nip_getsockopt,
-	.addr2sockaddr	   = NULL,
-	.sockaddr_len	   = sizeof(struct sockaddr_nin),
+static void tcp_nip__send_check(struct sock *sk, struct sk_buff *skb)
+{
+}
 
-	.mtu_reduced	   = NULL,
+static int tcp_nip_rebuild_header(struct sock *sk)
+{
+	return -EINVAL;
+}
+
+static void nip_addr2sockaddr(struct sock *sk, struct sockaddr *addr)
+{
+}
+
+static void nip_mtu_reduced(struct sock *sk)
+{
+}
+
+static const struct inet_connection_sock_af_ops newip_specific = {
+	.queue_xmit		= tcp_nip_queue_xmit,
+	.send_check		= tcp_nip__send_check,
+	.rebuild_header		= tcp_nip_rebuild_header,
+	.sk_rx_dst_set		= ninet_sk_rx_dst_set,
+	.conn_request		= tcp_nip_conn_request,
+	.syn_recv_sock		= tcp_nip_syn_recv_sock,
+	.net_header_len		= 0,
+	.net_frag_header_len	= 0,
+	.setsockopt		= nip_setsockopt,
+	.getsockopt		= nip_getsockopt,
+	.addr2sockaddr		= nip_addr2sockaddr,
+	.sockaddr_len		= sizeof(struct sockaddr_nin),
+	.mtu_reduced		= nip_mtu_reduced,
 };
 
 #if IS_ENABLED(CONFIG_NEWIP_FAST_KEEPALIVE)
@@ -1145,6 +1199,132 @@ static void tcp_sock_priv_init(struct sock *sk)
 	_tcp_sock_priv_init(sk);
 }
 
+static void nip_icsk_ca_init(struct sock *sk)
+{
+}
+
+static void nip_icsk_ca_release(struct sock *sk)
+{
+}
+
+static u32 nip_icsk_ca_ssthresh(struct sock *sk)
+{
+	return 0;
+}
+
+static void nip_icsk_ca_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+{
+}
+
+static void nip_icsk_ca_set_state(struct sock *sk, u8 new_state)
+{
+}
+
+static void nip_icsk_ca_cwnd_event(struct sock *sk, enum tcp_ca_event ev)
+{
+}
+
+static void nip_icsk_ca_in_ack_event(struct sock *sk, u32 flags)
+{
+}
+
+static u32 nip_icsk_ca_undo_cwnd(struct sock *sk)
+{
+	return 0;
+}
+
+static void nip_icsk_ca_pkts_acked(struct sock *sk, const struct ack_sample *sample)
+{
+}
+
+static u32 nip_icsk_ca_min_tso_segs(struct sock *sk)
+{
+	return 0;
+}
+
+static u32 nip_icsk_ca_sndbuf_expand(struct sock *sk)
+{
+	return 0;
+}
+
+static void nip_icsk_ca_cong_control(struct sock *sk, const struct rate_sample *rs)
+{
+}
+
+static size_t nip_icsk_ca_get_info(struct sock *sk, u32 ext, int *attr,
+			    union tcp_cc_info *info)
+{
+	return 0;
+}
+
+static int nip_icsk_ulp_init(struct sock *sk)
+{
+	return -EINVAL;
+}
+
+static void nip_icsk_ulp_update(struct sock *sk, struct proto *p,
+			 void (*write_space)(struct sock *sk))
+{
+}
+
+static void nip_icsk_ulp_release(struct sock *sk)
+{
+}
+
+static int nip_icsk_ulp_get_info(const struct sock *sk, struct sk_buff *skb)
+{
+	return -EINVAL;
+}
+
+static size_t nip_icsk_ulp_get_info_size(const struct sock *sk)
+{
+	return 0;
+}
+
+static void nip_icsk_ulp_clone(const struct request_sock *req, struct sock *newsk,
+			const gfp_t priority)
+{
+}
+
+static struct module nip_owner;
+
+struct tcp_ulp_ops nip_icsk_ulp_ops = {
+	.init			= nip_icsk_ulp_init,
+	.update			= nip_icsk_ulp_update,
+	.release		= nip_icsk_ulp_release,
+	.get_info		= nip_icsk_ulp_get_info,
+	.get_info_size		= nip_icsk_ulp_get_info_size,
+	.clone			= nip_icsk_ulp_clone,
+	.owner			= &nip_owner,
+};
+
+struct tcp_congestion_ops nip_icsk_ca_ops = {
+	.init			= nip_icsk_ca_init,
+	.release		= nip_icsk_ca_release,
+	.ssthresh		= nip_icsk_ca_ssthresh,
+	.cong_avoid		= nip_icsk_ca_cong_avoid,
+	.set_state		= nip_icsk_ca_set_state,
+	.cwnd_event		= nip_icsk_ca_cwnd_event,
+	.in_ack_event		= nip_icsk_ca_in_ack_event,
+	.undo_cwnd		= nip_icsk_ca_undo_cwnd,
+	.pkts_acked		= nip_icsk_ca_pkts_acked,
+	.min_tso_segs		= nip_icsk_ca_min_tso_segs,
+	.sndbuf_expand		= nip_icsk_ca_sndbuf_expand,
+	.cong_control		= nip_icsk_ca_cong_control,
+	.get_info		= nip_icsk_ca_get_info,
+};
+
+static void nip_icsk_clean_acked(struct sock *sk, u32 acked_seq)
+{
+}
+
+static void inet_connection_sock_pre_init(struct inet_connection_sock *icsk)
+{
+	icsk->icsk_ca_ops = &nip_icsk_ca_ops;
+	icsk->icsk_ulp_ops = &nip_icsk_ulp_ops;
+	icsk->icsk_clean_acked = nip_icsk_clean_acked;
+}
+
 /* Function
  *    Example Initialize sock information in TCP
  * Parameter
@@ -1163,6 +1343,7 @@ static int tcp_nip_init_sock(struct sock *sk)
 	tcp_nip_init_xmit_timers(sk);
 	INIT_LIST_HEAD(&tp->tsq_node);
 
+	inet_connection_sock_pre_init(icsk);
 	icsk->icsk_rto = get_nip_rto() == 0 ? TCP_TIMEOUT_INIT : (HZ / get_nip_rto());
 	icsk->icsk_rto_min = TCP_RTO_MIN;
 	icsk->icsk_delack_max = TCP_DELACK_MAX;
@@ -2026,10 +2207,22 @@ struct sock *ninet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
 	return newsk;
 }
 
+static int tcp_nip_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
+		     int flags)
+{
+	return -EINVAL;
+}
+
+static int tcp_nip_pre_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+{
+	return -EINVAL;
+}
+
 struct proto tcp_nip_prot = {
 	.name			= "NIP_TCP",
 	.owner			= THIS_MODULE,
 	.close			= tcp_nip_close,
+	.pre_connect		= tcp_nip_pre_connect,
 	.connect		= tcp_nip_connect,
 	.disconnect		= tcp_nip_disconnect,
 	.accept			= ninet_csk_accept,
@@ -2042,7 +2235,7 @@ struct proto tcp_nip_prot = {
 	.keepalive		= tcp_set_keepalive,
 	.recvmsg		= tcp_nip_recvmsg,
 	.sendmsg		= tcp_nip_sendmsg,
-	.sendpage		= NULL,
+	.sendpage		= tcp_nip_sendpage,
 	.backlog_rcv		= tcp_nip_do_rcv,
 	.release_cb		= tcp_nip_release_cb,
 	.hash			= ninet_hash,
@@ -2062,10 +2255,17 @@ struct proto tcp_nip_prot = {
 	.no_autobind		= true,
 };
 
+static void tcp_nip_err_handler(struct sk_buff *skb,
+			 struct ninet_skb_parm *opt,
+			 u8 type, u8 code, int offset, __be32 info)
+{
+}
+
 static const struct ninet_protocol tcp_nip_protocol   = {
-	.early_demux	=	tcp_nip_early_demux,
-	.handler	=	tcp_nip_rcv,
-	.flags		=	0,
+	.early_demux		= tcp_nip_early_demux,
+	.handler		= tcp_nip_rcv,
+	.err_handler		= tcp_nip_err_handler,
+	.flags			= 0,
 };
 
 static struct inet_protosw tcp_nip_protosw = {
