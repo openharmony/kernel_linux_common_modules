@@ -87,11 +87,16 @@ static void nndisc_error_report(struct neighbour *neigh, struct sk_buff *skb)
 	kfree_skb(skb);
 }
 
+static void nndisc_generic_error_report(struct neighbour *neigh, struct sk_buff *skb)
+{
+}
+
 static const struct neigh_ops nndisc_generic_ops = {
 	.family = AF_NINET,
 	.solicit = nndisc_solicit,
 	.output = neigh_resolve_output,
 	.connected_output = neigh_connected_output,
+	.error_report = nndisc_generic_error_report,
 };
 
 static const struct neigh_ops nndisc_hh_ops = {
@@ -121,6 +126,15 @@ static const struct neigh_ops nndisc_direct_ops = {
 #define NIP_NEIGH_GC_THRESH_2 512
 #define NIP_NEIGH_GC_THRESH_3 1024
 
+static void nndisc_proxy_redo(struct sk_buff *skb)
+{
+}
+
+static int nndisc_is_multicast(const void *pkey)
+{
+	return -EINVAL;
+}
+
 struct neigh_table nnd_tbl = {
 	.family = AF_NINET,
 	.key_len = sizeof(struct nip_addr),
@@ -128,6 +142,8 @@ struct neigh_table nnd_tbl = {
 	.hash = nndisc_hash,
 	.key_eq = nndisc_key_eq,
 	.constructor = nndisc_constructor,
+	.proxy_redo = nndisc_proxy_redo,
+	.is_multicast = nndisc_is_multicast,
 	.id = "nndisc_cache",
 	.parms = {
 		  .tbl = &nnd_tbl,

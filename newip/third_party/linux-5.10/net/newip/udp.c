@@ -496,34 +496,68 @@ int nip_udp_getsockopt(struct sock *sk, int level,
 	return nip_getsockopt(sk, level, optname, optval, optlen);
 }
 
+int nip_udp_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+{
+	return -EINVAL;
+}
+
+int nip_udp_pre_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+{
+	return -EINVAL;
+}
+
+int nip_udp_sendpage(struct sock *sk, struct page *page, int offset,
+		     size_t size, int flags)
+{
+	return -EINVAL;
+}
+
+void nip_udp_datagram_release_cb(struct sock *sk)
+{
+}
+
+void udp_nip_rehash(struct sock *sk)
+{
+}
+
+void nip_udp_early_demux(struct sk_buff *skb)
+{
+}
+
 static const struct ninet_protocol nip_udp_protocol = {
-	.handler = nip_udp_input,
-	.err_handler = nip_udp_err,
-	.flags = 0,
+	.handler	= nip_udp_input,
+	.err_handler	= nip_udp_err,
+	.early_demux	= nip_udp_early_demux,
+	.flags		= 0,
 };
 
 /* Newip Udp related operations */
 struct proto nip_udp_prot = {
-	.name = "nip_udp",
-	.owner = THIS_MODULE,
-	.close = udp_lib_close,
-	.disconnect = udp_disconnect,
-	.ioctl = udp_ioctl,
-	.init = udp_init_sock,
-	.destroy = nip_udp_destroy_sock,
-	.setsockopt = nip_udp_setsockopt,
-	.getsockopt = nip_udp_getsockopt,
-	.sendmsg = nip_udp_output,
-	.recvmsg = nip_udp_recvmsg,
-	.backlog_rcv = __nip_udp_queue_rcv_skb,
-	.hash = udp_lib_hash,
-	.unhash = udp_lib_unhash,
-	.get_port = nip_udp_get_port,
-	.memory_allocated = &udp_memory_allocated,
-	.sysctl_mem = sysctl_udp_mem,
-	.obj_size = sizeof(struct nip_udp_sock),
-	.h.udp_table = &udp_table,
-	.diag_destroy = udp_abort,
+	.name			= "nip_udp",
+	.owner			= THIS_MODULE,
+	.close			= udp_lib_close,
+	.pre_connect		= nip_udp_pre_connect,
+	.connect		= nip_udp_datagram_connect,
+	.disconnect		= udp_disconnect,
+	.ioctl			= udp_ioctl,
+	.init			= udp_init_sock,
+	.destroy		= nip_udp_destroy_sock,
+	.setsockopt		= nip_udp_setsockopt,
+	.getsockopt		= nip_udp_getsockopt,
+	.sendmsg		= nip_udp_output,
+	.recvmsg		= nip_udp_recvmsg,
+	.sendpage		= nip_udp_sendpage,
+	.release_cb		= nip_udp_datagram_release_cb,
+	.backlog_rcv		= __nip_udp_queue_rcv_skb,
+	.hash			= udp_lib_hash,
+	.unhash			= udp_lib_unhash,
+	.rehash			= udp_nip_rehash,
+	.get_port		= nip_udp_get_port,
+	.memory_allocated	= &udp_memory_allocated,
+	.sysctl_mem		= sysctl_udp_mem,
+	.obj_size		= sizeof(struct nip_udp_sock),
+	.h.udp_table		= &udp_table,
+	.diag_destroy		= udp_abort,
 };
 
 /* Example Create newip socket information */
