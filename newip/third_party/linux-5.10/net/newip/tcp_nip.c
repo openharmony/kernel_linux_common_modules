@@ -798,7 +798,7 @@ static void tcp_nip_reqsk_destructor(struct request_sock *req)
 }
 
 static void tcp_nip_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
-			    struct request_sock *req)
+				   struct request_sock *req)
 {
 }
 
@@ -820,17 +820,19 @@ struct request_sock_ops tcp_nip_request_sock_ops __read_mostly = {
 	.syn_ack_timeout =	tcp_nip_reqsk_syn_ack_timeout,
 };
 
+#ifdef CONFIG_TCP_MD5SIG
 static int nip_calc_md5_hash(char *location, const struct tcp_md5sig_key *md5,
-		      const struct sock *sk, const struct sk_buff *skb)
+			     const struct sock *sk, const struct sk_buff *skb)
 {
 	return -EINVAL;
 }
 
 static struct tcp_md5sig_key *nip_req_md5_lookup(const struct sock *sk,
-					  const struct sock *addr_sk)
+						 const struct sock *addr_sk)
 {
 	return NULL;
 }
+#endif
 
 #ifdef CONFIG_SYN_COOKIES
 static __u32 nip_cookie_init_seq(const struct sk_buff *skb, __u16 *mss)
@@ -1252,7 +1254,7 @@ static void nip_icsk_ca_cong_control(struct sock *sk, const struct rate_sample *
 }
 
 static size_t nip_icsk_ca_get_info(struct sock *sk, u32 ext, int *attr,
-			    union tcp_cc_info *info)
+				   union tcp_cc_info *info)
 {
 	return 0;
 }
@@ -1263,7 +1265,7 @@ static int nip_icsk_ulp_init(struct sock *sk)
 }
 
 static void nip_icsk_ulp_update(struct sock *sk, struct proto *p,
-			 void (*write_space)(struct sock *sk))
+				void (*write_space)(struct sock *sk))
 {
 }
 
@@ -1282,7 +1284,7 @@ static size_t nip_icsk_ulp_get_info_size(const struct sock *sk)
 }
 
 static void nip_icsk_ulp_clone(const struct request_sock *req, struct sock *newsk,
-			const gfp_t priority)
+			       const gfp_t priority)
 {
 }
 
@@ -1325,6 +1327,36 @@ static void inet_connection_sock_pre_init(struct inet_connection_sock *icsk)
 	icsk->icsk_clean_acked = nip_icsk_clean_acked;
 }
 
+#ifdef CONFIG_TCP_MD5SIG
+struct tcp_md5sig_key	*nip_md5_lookup(const struct sock *sk,
+					const struct sock *addr_sk)
+{
+	return NULL;
+}
+
+int nip_md5_parse(struct sock *sk, int optname, sockptr_t optval,
+		  int optlen)
+{
+	return -EINVAL;
+}
+
+const struct tcp_sock_af_ops nip_af_specific = {
+	.md5_lookup = nip_md5_lookup,
+	.calc_md5_hash = nip_calc_md5_hash,
+	.md5_parse = nip_md5_parse,
+};
+
+struct tcp_md5sig_info	__rcu nip_md5sig_info;
+#endif
+
+static void tcp_sock_pre_init(struct tcp_sock *tp)
+{
+#ifdef CONFIG_TCP_MD5SIG
+	tp->af_specific = &nip_af_specific;
+	tp->md5sig_info = &nip_md5sig_info;
+#endif
+}
+
 /* Function
  *    Example Initialize sock information in TCP
  * Parameter
@@ -1344,6 +1376,7 @@ static int tcp_nip_init_sock(struct sock *sk)
 	INIT_LIST_HEAD(&tp->tsq_node);
 
 	inet_connection_sock_pre_init(icsk);
+	tcp_sock_pre_init(tp);
 	icsk->icsk_rto = get_nip_rto() == 0 ? TCP_TIMEOUT_INIT : (HZ / get_nip_rto());
 	icsk->icsk_rto_min = TCP_RTO_MIN;
 	icsk->icsk_delack_max = TCP_DELACK_MAX;
@@ -2208,7 +2241,7 @@ struct sock *ninet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
 }
 
 static int tcp_nip_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
-		     int flags)
+			    int flags)
 {
 	return -EINVAL;
 }
@@ -2256,8 +2289,8 @@ struct proto tcp_nip_prot = {
 };
 
 static void tcp_nip_err_handler(struct sk_buff *skb,
-			 struct ninet_skb_parm *opt,
-			 u8 type, u8 code, int offset, __be32 info)
+				struct ninet_skb_parm *opt,
+				u8 type, u8 code, int offset, __be32 info)
 {
 }
 
