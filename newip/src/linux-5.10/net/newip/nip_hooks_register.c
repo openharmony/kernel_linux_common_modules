@@ -15,9 +15,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/hck/lite_hck_inet.h>
-#include <linux/netdevice.h>
 #include <net/ninet_hashtables.h>      /* ninet_ehashfn */
-#include <net/if_ninet.h>
 #include "tcp_nip_parameter.h"
 
 /* call the newip hook function in sk_ehashfn function (net\ipv4\inet_hashtables.c):
@@ -31,35 +29,14 @@ void nip_ninet_ehashfn(const struct sock *sk, u32 *ret)
 			     sk->sk_num, &sk->SK_NIP_DADDR, sk->sk_dport);
 }
 
-/* call the newip hook function in inet_gifconf function (net\ipv4\devinet.c):
- */
-void nip_ninet_gifconf(struct net_device *dev,
-		       char __user *buf, int len, int size, int *v4_done)
-{
-	if (*v4_done >= 0) {
-		int done = ninet_gifconf(dev, (buf) ? buf + *v4_done : buf, len, size);
-
-		if (done < 0)
-			*v4_done = done;
-		else
-			*v4_done += done;
-	}
-}
-
 void nip_ninet_ehashfn_lhck_register(void)
 {
 	REGISTER_HCK_LITE_HOOK(nip_ninet_ehashfn_lhck, nip_ninet_ehashfn);
 }
 
-void nip_ninet_gifconf_lhck_register(void)
-{
-	REGISTER_HCK_LITE_HOOK(nip_ninet_gifconf_lhck, nip_ninet_gifconf);
-}
-
 int __init ninet_hooks_init(void)
 {
 	nip_ninet_ehashfn_lhck_register();
-	nip_ninet_gifconf_lhck_register();
 	return 0;
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Based on net/ipv4/devinet.c
- * 	Authors:	Ross Biro
+ *	Authors:	Ross Biro
  *			Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
  *			Mark Evans, <evansmp@uhura.aston.ac.uk>
  *
@@ -18,6 +18,9 @@
  *					fall back to comparing just the label
  *					if no match found.
  *
+ * Based on net/core/dev_ioctl.c
+ * No Authors, no Copyright
+ *
  * NewIP INET
  * An implementation of the TCP/IP protocol suite for the LINUX
  * operating system. NewIP INET is implemented using the  BSD Socket
@@ -27,9 +30,40 @@
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": [%s:%d] " fmt, __func__, __LINE__
 
+#include <linux/netdevice.h>
+
 #include <net/nip_fib.h>
 #include <net/nip_addrconf.h>
 #include "tcp_nip_parameter.h"
+
+int nip_dev_ifconf(struct net *net, struct ifconf *ifc, int size)
+{
+	struct net_device *dev;
+	char __user *pos;
+	int len;
+	int total;
+
+	pos = ifc->ifc_buf;
+	len = ifc->ifc_len;
+
+	total = 0;
+	for_each_netdev(net, dev) {
+		int done;
+
+		if (!pos)
+			done = ninet_gifconf(dev, NULL, 0, size);
+		else
+			done = ninet_gifconf(dev, pos + total,
+					     len - total, size);
+		if (done < 0)
+			return -EFAULT;
+		total += done;
+	}
+
+	ifc->ifc_len = total;
+
+	return 0;
+}
 
 int ninet_gifconf(struct net_device *dev, char __user *buf, int len, int size)
 {
