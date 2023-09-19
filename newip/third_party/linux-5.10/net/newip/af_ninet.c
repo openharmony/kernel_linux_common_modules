@@ -9,6 +9,49 @@
  *	Hideaki YOSHIFUJI	:	sin6_scope_id support
  *	Arnaldo Melo		:	check proc_net_create return, cleanups
  *
+ * Based on  linux/net/socket.c
+ * Authors:	Orest Zborowski, <obz@Kodak.COM>
+ *		Ross Biro
+ *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
+ *
+ * Fixes:
+ *		Anonymous	:	NOTSOCK/BADF cleanup. Error fix in
+ *					shutdown()
+ *		Alan Cox	:	verify_area() fixes
+ *		Alan Cox	:	Removed DDI
+ *		Jonathan Kamens	:	SOCK_DGRAM reconnect bug
+ *		Alan Cox	:	Moved a load of checks to the very
+ *					top level.
+ *		Alan Cox	:	Move address structures to/from user
+ *					mode above the protocol layers.
+ *		Rob Janssen	:	Allow 0 length sends.
+ *		Alan Cox	:	Asynchronous I/O support (cribbed from the
+ *					tty drivers).
+ *		Niibe Yutaka	:	Asynchronous I/O for writes (4.4BSD style)
+ *		Jeff Uphoff	:	Made max number of sockets command-line
+ *					configurable.
+ *		Matti Aarnio	:	Made the number of sockets dynamic,
+ *					to be allocated when needed, and mr.
+ *					Uphoff's max is used as max to be
+ *					allowed to allocate.
+ *		Linus		:	Argh. removed all the socket allocation
+ *					altogether: it's in the inode now.
+ *		Alan Cox	:	Made sock_alloc()/sock_release() public
+ *					for NetROM and future kernel nfsd type
+ *					stuff.
+ *		Alan Cox	:	sendmsg/recvmsg basics.
+ *		Tom Dyas	:	Export net symbols.
+ *		Marcin Dalecki	:	Fixed problems with CONFIG_NET="n".
+ *		Alan Cox	:	Added thread locking to sys_* calls
+ *					for sockets. May have errors at the
+ *					moment.
+ *		Kevin Buhr	:	Fixed the dumb errors in the above.
+ *		Andi Kleen	:	Some small cleanups, optimizations,
+ *					and fixed a copy_from_user() bug.
+ *		Tigran Aivazian	:	sys_send(args) calls sys_sendto(args, NULL, 0)
+ *		Tigran Aivazian	:	Made listen(2) backlog sanity checks
+ *					protocol-independent
+ *
  * NewIP INET socket protocol family
  * Linux NewIP INET implementation
  */
@@ -28,6 +71,9 @@
 #include <linux/stat.h>
 #include <linux/init.h>
 #include <linux/sched/signal.h> /* for signal_pending() */
+#include <linux/netdevice.h>
+#include <linux/uaccess.h>
+#include <linux/rtnetlink.h>
 
 #include <net/nip.h>
 #include <net/udp.h>
@@ -459,7 +505,19 @@ int ninet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 		return nip_addrconf_del_ifaddr(net, (void __user *)arg);
 	case SIOCGIFADDR:
 		return nip_addrconf_get_ifaddr(net, cmd, (void __user *)arg);
+	case SIOCGIFCONF: {
+		struct ifconf ifc;
+		int err;
 
+		if (copy_from_user(&ifc, (void __user *)arg, sizeof(struct ifconf)))
+			return -EFAULT;
+		rtnl_lock();
+		err = nip_dev_ifconf(net, &ifc, sizeof(struct ifreq));
+		rtnl_unlock();
+		if (!err && copy_to_user((void __user *)arg, &ifc, sizeof(struct ifconf)))
+			err = -EFAULT;
+		return err;
+	}
 	default:
 		if (!sk->sk_prot->ioctl) {
 			nip_dbg("sock sk_prot ioctl is null, cmd=0x%x", cmd);

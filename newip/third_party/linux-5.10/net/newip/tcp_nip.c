@@ -985,7 +985,7 @@ put_and_exit:
 	goto out;
 }
 
-static void tcp_nip__send_check(struct sock *sk, struct sk_buff *skb)
+static void tcp_nip_send_check(struct sock *sk, struct sk_buff *skb)
 {
 }
 
@@ -1004,7 +1004,7 @@ static void nip_mtu_reduced(struct sock *sk)
 
 static const struct inet_connection_sock_af_ops newip_specific = {
 	.queue_xmit		= tcp_nip_queue_xmit,
-	.send_check		= tcp_nip__send_check,
+	.send_check		= tcp_nip_send_check,
 	.rebuild_header		= tcp_nip_rebuild_header,
 	.sk_rx_dst_set		= ninet_sk_rx_dst_set,
 	.conn_request		= tcp_nip_conn_request,
@@ -1328,8 +1328,8 @@ static void inet_connection_sock_pre_init(struct inet_connection_sock *icsk)
 }
 
 #ifdef CONFIG_TCP_MD5SIG
-struct tcp_md5sig_key	*nip_md5_lookup(const struct sock *sk,
-					const struct sock *addr_sk)
+struct tcp_md5sig_key *nip_md5_lookup(const struct sock *sk,
+				      const struct sock *addr_sk)
 {
 	return NULL;
 }
