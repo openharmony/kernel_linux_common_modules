@@ -64,6 +64,7 @@ struct ninet_dev {
 };
 
 int ninet_gifconf(struct net_device *dev, char __user *buf, int len, int size);
+int nip_dev_ifconf(struct net *net, struct ifconf *ifc, int size);
 int ninet_ioctl_cmd(struct socket *sock, const struct iovec *iov);
 
 #endif
