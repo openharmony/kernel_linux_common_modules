@@ -560,15 +560,43 @@ static int ninet_compat_routing_ioctl(struct sock *sk, unsigned int cmd,
 	return nip_route_ioctl(sock_net(sk), cmd, &rt);
 }
 
+static int compat_nip_dev_ifconf(struct net *net, struct compat_ifconf __user *uifc32)
+{
+	struct compat_ifconf ifc32;
+	struct ifconf ifc;
+	int err;
+
+	if (copy_from_user(&ifc32, uifc32, sizeof(struct compat_ifconf)))
+		return -EFAULT;
+
+	ifc.ifc_len = ifc32.ifc_len;
+	ifc.ifc_req = compat_ptr(ifc32.ifcbuf);
+
+	rtnl_lock();
+	err = nip_dev_ifconf(net, &ifc, sizeof(struct compat_ifreq));
+	rtnl_unlock();
+	if (err)
+		return err;
+
+	ifc32.ifc_len = ifc.ifc_len;
+	if (copy_to_user(uifc32, &ifc32, sizeof(struct compat_ifconf)))
+		return -EFAULT;
+
+	return 0;
+}
+
 int ninet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	void __user *argp = compat_ptr(arg);
 	struct sock *sk = sock->sk;
+	struct net *net = sock_net(sk);
 
 	switch (cmd) {
 	case SIOCADDRT:
 	case SIOCDELRT:
 		return ninet_compat_routing_ioctl(sk, cmd, argp);
+	case SIOCGIFCONF:
+		return compat_nip_dev_ifconf(net, argp);
 	default:
 		return -ENOIOCTLCMD;
 	}
