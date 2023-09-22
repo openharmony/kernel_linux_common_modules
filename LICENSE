@@ -2,5 +2,6 @@
     ./newip/
     ./xpm/
     ./qos_auth/
+    ./ucollection/
 
 As for the specific use of the licenses,  please refer to the relevant description in the documents.
