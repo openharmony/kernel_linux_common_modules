@@ -2,5 +2,7 @@
     ./newip/
     ./xpm/
     ./qos_auth/
+    ./ucollection/
+    ./memory_security/
 
 As for the specific use of the licenses,  please refer to the relevant description in the documents.
