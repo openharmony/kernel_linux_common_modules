@@ -15,6 +15,15 @@ config SECURITY_XPM
 	  mmap and etc. It can control not to execute an illegal signature
 	  process.
 
+config DSMM_DEVELOPER_ENABLE
+	bool "Enables device developer mode feature"
+	depends on SECURITY_XPM
+	default n
+	help
+	  This option should only be enabled for the device support developer
+	  mode feature. But whether or not developer mode is enabled on the
+	  device ultimately depends on the developer_mode valude in cmdline.
+
 config SECURITY_XPM_DEBUG
 	bool "Enables excutable permission manager debug mode"
 	depends on SECURITY_XPM
