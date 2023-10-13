@@ -12,6 +12,7 @@
 #include "xpm_misc.h"
 #include "xpm_report.h"
 #include "xpm_debugfs.h"
+#include "dsmm_developer.h"
 
 static int __init xpm_module_init(void)
 {
@@ -35,6 +36,8 @@ static int __init xpm_module_init(void)
 	xpm_register_xpm_hooks();
 	xpm_register_hck_hooks();
 
+	dsmm_developer_proc_create();
+
 	xpm_log_info("xpm module init success");
 	return 0;
 }
@@ -43,6 +46,9 @@ static void __exit xpm_module_exit(void)
 {
 	xpm_deregister_misc_device();
 	xpm_debugfs_exit();
+
+	dsmm_developer_proc_clean();
+
 	xpm_log_info("xpm module exit success");
 }
 

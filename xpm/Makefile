@@ -10,6 +10,7 @@ obj-$(CONFIG_SECURITY_XPM) += \
 	core/xpm_misc.o \
 	core/xpm_hck.o \
 	core/xpm_report.o \
+	core/dsmm_developer.o \
 	validator/elf_code_segment_info.o \
 	validator/exec_signature_info.o
 
