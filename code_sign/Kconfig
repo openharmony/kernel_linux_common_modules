@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+#
+config SECURITY_CODE_SIGN
+	bool "Advanced code signing feature based on FS Verity"
+	depends on FS_VERITY
+	default n
+	help
+	  This option enables additional code signing verify features
+	  based on fs-verity, including verify if a certificate's subject
+	  and issuer can be trusted, etc.
+
+	  If unsure, say N.
