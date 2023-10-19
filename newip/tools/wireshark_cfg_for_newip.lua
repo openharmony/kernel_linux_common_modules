@@ -256,8 +256,8 @@ function nip_dissector(tvb, pinfo, treeitem)
 		offset = offset + 1
 		nd_icmp_tree:add(_code, tvb(offset, 1))
 		offset = offset + 1
-		nd_icmp_tree:add(_checksum, tvb(offset, 1))
-		offset = offset + 1
+		nd_icmp_tree:add(_checksum, tvb(offset, 2))
+		offset = offset + 2
 		if type == 1 then
 			local first_addr = tvb(offset, 1):uint()
 			local addr_len = get_nip_addr_len (first_addr)
