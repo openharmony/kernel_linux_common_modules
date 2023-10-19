@@ -3,6 +3,7 @@
     ./xpm/
     ./qos_auth/
     ./ucollection/
+    ./memory_security/
     ./code_sign
 
 As for the specific use of the licenses,  please refer to the relevant description in the documents.
