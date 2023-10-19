@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
+config UNIFIED_COLLECTION
+	def_bool $(success,$(srctree)/scripts/ohos-check-dir.sh $(srctree)/drivers/staging/ucollection)
+	tristate "Enable unified collection"
+	help
+	  unified collection
