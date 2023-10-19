@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+#
+# Config for hide excutable memory address of process manager
+#
+
+menu "Hide memory address manager"
+
+config HIDE_MEM_ADDRESS
+	default n
+	bool "Hide excutable memory address in proc/[pid]/maps "
+ 	help
+	  Select show address about anonymous area of the process memory
+	  with -rx- permissions or not.
+endmenu
+# a blank line must be existed
