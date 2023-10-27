@@ -10,6 +10,7 @@
 
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
+#include "code_sign_ext.h"
 
 static const struct file_operations code_sign_ops = {
 	.owner = THIS_MODULE,
@@ -28,6 +29,9 @@ static struct miscdevice code_sign_misc = {
 static void code_sign_register_hck_hooks(void)
 {
 	REGISTER_HCK_LITE_HOOK(code_sign_verify_certchain_lhck, code_sign_verify_certchain);
+	REGISTER_HCK_LITE_HOOK(code_sign_check_descriptor_lhck, code_sign_check_descriptor);
+	REGISTER_HCK_LITE_HOOK(code_sign_before_measurement_lhck, code_sign_before_measurement);
+	REGISTER_HCK_LITE_HOOK(code_sign_after_measurement_lhck, code_sign_after_measurement);
 }
 
 static int __init code_sign_init(void)
