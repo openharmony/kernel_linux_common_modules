@@ -30,8 +30,8 @@ enum qos_ctrl_cmdid {
 	_IOWR(QOS_CTRL_IPC_MAGIG, QOS_POLICY, struct qos_policy_datas)
 
 #define NO_QOS -1
-#define NR_QOS 6
-#define NR_RT_QOS 1
+#define NR_QOS 7
+#define NR_RT_QOS 2
 #define MIN_RT_QOS_LEVEL (NR_QOS - NR_RT_QOS)
 
 #define QOS_NUM_MAX 2000
