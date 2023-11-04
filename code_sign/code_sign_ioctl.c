@@ -9,25 +9,27 @@
 #include <linux/compat.h>
 #include "avc.h"
 #include "objsec.h"
+#include "../../security/xpm/include/dsmm_developer.h"
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
 
 struct rb_root cert_chain_tree = RB_ROOT;
+struct rb_root dev_cert_chain_tree = RB_ROOT;
 
-struct cert_source *cert_chain_search(struct rb_root *root, struct x509_certificate *cert)
+struct cert_source *cert_chain_search(struct rb_root *root, char *subject, char *issuer)
 {
 	struct rb_node **cur_node = &(root->rb_node);
 
 	while (*cur_node) {
 		struct cert_source *cur_cert = container_of(*cur_node, struct cert_source, node);
-		int result = strcmp(cert->subject, cur_cert->subject);
+		int result = strcmp(subject, cur_cert->subject);
 
 		if (result < 0) {
 			cur_node = &((*cur_node)->rb_left);
 		} else if (result > 0) {
 			cur_node = &((*cur_node)->rb_right);
 		} else {
-			result = strcmp(cert->issuer, cur_cert->issuer);
+			result = strcmp(issuer, cur_cert->issuer);
 			if (result < 0) {
 				cur_node = &((*cur_node)->rb_left);
 			} else if (result > 0) {
@@ -42,13 +44,40 @@ struct cert_source *cert_chain_search(struct rb_root *root, struct x509_certific
 	return NULL;
 }
 
-struct cert_source *find_match(struct x509_certificate *cert)
+struct cert_source *find_match(struct x509_certificate *cert, bool is_dev)
 {
-	return cert_chain_search(&cert_chain_tree, cert);
+	if (is_dev)
+		return cert_chain_search(&dev_cert_chain_tree, cert->subject, cert->issuer);
+	else
+		return cert_chain_search(&cert_chain_tree, cert->subject, cert->issuer);
 }
 
-void cert_chain_insert(struct rb_root *root, struct cert_source *cert)
+int code_sign_check_caller(char *caller)
 {
+	u32 sid = current_sid(), context_len;
+	char *context = NULL;
+	int rc;
+
+	rc = security_sid_to_context(&selinux_state, sid, &context, &context_len);
+	if (rc)
+		return rc;
+
+	code_sign_log_debug("sid=%d, context=%s", sid, context);
+	if (strncmp(caller, context, strlen(caller)))
+		return 0;
+	else
+		return -EKEYREJECTED;
+}
+
+int cert_chain_insert(struct rb_root *root, struct cert_source *cert)
+{
+	// procs except key_enable are only allowed to insert developer_code
+	if (!code_sign_check_caller(KEY_ENABLE_CTX) && !(cert->path_type == RELEASE_DEVELOPER_CODE
+		|| cert->path_type == DEBUG_DEVELOPER_CODE)) {
+		code_sign_log_error("no permission to insert code %d", cert->path_type);
+		return -EKEYREJECTED;
+	}
+
 	struct rb_node **new = &(root->rb_node), *parent = NULL;
 
 	while (*new) {
@@ -67,15 +96,43 @@ void cert_chain_insert(struct rb_root *root, struct cert_source *cert)
 			} else if (result > 0) {
 				new = &((*new)->rb_right);
 			} else {
+				this->cnt++;
 				code_sign_log_info("cert already exist in trust sources");
-				return;
+				return 0;
 			}
 		}
 	}
 
 	// add new node
+	cert->cnt++;
 	rb_link_node(&cert->node, parent, new);
 	rb_insert_color(&cert->node, root);
+
+	code_sign_log_info("add trusted cert: subject = '%s', issuer = '%s', max_path_depth = %d",
+		cert->subject, cert->issuer, cert->max_path_depth);
+	return 0;
+}
+
+int cert_chain_remove(struct rb_root *root, struct cert_source *cert)
+{
+	struct cert_source *matched_cert = cert_chain_search(root, cert->subject, cert->issuer);
+
+	if (!matched_cert)
+		return -EINVAL;
+
+	if (matched_cert->path_type == RELEASE_DEVELOPER_CODE
+		|| matched_cert->path_type == DEBUG_DEVELOPER_CODE) {
+		--matched_cert->cnt;
+		if (matched_cert->cnt > 0)
+			return 0;
+		rb_erase(&matched_cert->node, root);
+		code_sign_log_info("remove trusted cert: subject = '%s', issuer = '%s', max_path_depth = %d",
+			cert->subject, cert->issuer, cert->max_path_depth);
+		return 0;
+	}
+
+	code_sign_log_error("can not remove cert type %x", cert->path_type);
+	return -EKEYREJECTED;
 }
 
 int code_sign_open(struct inode *inode, struct file *filp)
@@ -104,25 +161,13 @@ int code_sign_avc_has_perm(u16 tclass, u32 requested)
 	return rc;
 }
 
-long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
+int parse_cert_source(unsigned long args, struct cert_source **_source)
 {
 	int ret = 0;
-
-	if (code_sign_avc_has_perm(SECCLASS_CODE_SIGN, CODE_SIGN__ADD_CERT_CHAIN)) {
-		code_sign_log_error("selinux check failed, no permission to add cert chain");
-		return -EPERM;
-	}
-
-	if (cmd != WRITE_CERT_CHAIN) {
-		code_sign_log_error("code_sign cmd error, cmd: %d", cmd);
-		return -EINVAL;
-	}
-
 	struct cert_source *source = kzalloc(sizeof(struct cert_source), GFP_KERNEL);
 
 	if (!source)
 		return -ENOMEM;
-
 
 	struct cert_chain_info info;
 
@@ -132,8 +177,8 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 		goto copy_source_failed;
 	}
 
-	if (info.path_len > CERT_CHAIN_PATH_LEN_MAX) {
-		code_sign_log_error("invalid path len: %d", info.path_len);
+	if (info.path_len > CERT_CHAIN_PATH_LEN_MAX || info.issuer_length == 0 || info.signing_length == 0) {
+		code_sign_log_error("invalid path len or subject or issuer");
 		ret = -EINVAL;
 		goto copy_source_failed;
 	}
@@ -164,13 +209,9 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 	}
 
 	source->max_path_depth = info.path_len;
+	source->path_type = info.cert_type;
 
-	code_sign_log_info("add trusted cert: subject = '%s', issuer = '%s', max_path_depth = %d",
-		source->subject, source->issuer, source->max_path_depth);
-
-	// insert rb_tree
-	cert_chain_insert(&cert_chain_tree, source);
-
+	*_source = source;
 	return ret;
 
 copy_issuer_failed:
@@ -179,5 +220,89 @@ copy_subject_failed:
 	kfree(source->subject);
 copy_source_failed:
 	kfree(source);
+	return ret;
+}
+
+int code_sign_check_code(int code)
+{
+	int is_dev_mode = 0;
+
+	if (code > RELEASE_CODE_START && code < RELEASE_CODE_END)
+		return is_dev_mode;
+
+	// developer mode
+	if (!strcmp(developer_mode_state(), DEVELOPER_STATUS_ON)) {
+		code_sign_log_debug("developer mode on");
+		is_dev_mode = 1;
+	}
+
+	if (is_dev_mode && (code > DEBUG_CODE_START && code < DEBUG_CODE_END))
+		return is_dev_mode;
+
+	code_sign_log_error("cert type %x is invalid", code);
+	return -EINVAL;
+}
+
+long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
+{
+	int ret = 0;
+	struct cert_source *source;
+
+	switch (cmd) {
+		case ADD_CERT_CHAIN:
+			if (code_sign_avc_has_perm(SECCLASS_CODE_SIGN, CODE_SIGN__ADD_CERT_CHAIN)) {
+				code_sign_log_error("selinux check failed, no permission to add cert chain");
+				return -EPERM;
+			}
+
+			ret = parse_cert_source(args, &source);
+			if (ret)
+				return ret;
+
+			// insert rb_tree
+			ret = code_sign_check_code(source->path_type);
+			if (ret < 0)
+				return ret;
+
+			if (ret) {
+				// developer cert
+				code_sign_log_debug("add developer cert");
+				source->cnt++;
+				ret = cert_chain_insert(&dev_cert_chain_tree, source);
+			} else {
+				code_sign_log_debug("add release cert");
+				ret = cert_chain_insert(&cert_chain_tree, source);
+			}
+			break;
+		case REMOVE_CERT_CHAIN:
+			if (code_sign_avc_has_perm(SECCLASS_CODE_SIGN, CODE_SIGN__REMOVE_CERT_CHAIN)) {
+				code_sign_log_error("selinux check failed, no permission to remove cert chain");
+				return -EPERM;
+			}
+
+			ret = parse_cert_source(args, &source);
+			if (ret)
+				return ret;
+
+			// delete rb_tree
+			ret = code_sign_check_code(source->path_type);
+			if (ret < 0)
+				return ret;
+
+			if (ret) {
+				// developer cert
+				code_sign_log_debug("remove developer cert");
+				cert_chain_remove(&dev_cert_chain_tree, source);
+			} else {
+				code_sign_log_debug("remove release cert");
+				cert_chain_remove(&cert_chain_tree, source);
+			}
+			break;
+		default:
+			code_sign_log_error("code_sign cmd error, cmd: %d", cmd);
+			ret = -EINVAL;
+			break;
+	}
+
 	return ret;
 }

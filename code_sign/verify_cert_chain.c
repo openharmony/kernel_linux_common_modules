@@ -8,6 +8,8 @@
 #include <linux/slab.h>
 #include <linux/verification.h>
 #include <crypto/pkcs7.h>
+#include "objsec.h"
+#include "../../security/xpm/include/dsmm_developer.h"
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
 #include "verify_cert_chain.h"
@@ -75,7 +77,7 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 	// no cert chain, verify by certificates in keyring
 	if (!pkcs7->certs) {
 		code_sign_log_warn("no certs in pkcs7, might be found in trust keyring");
-		*ret = 0;
+		*ret = MAY_LOCAL_CODE;
 		return;
 	}
 
@@ -83,6 +85,17 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 		code_sign_log_error("signed info not found in pkcs7");
 		*ret = -EKEYREJECTED;
 		return;
+	}
+
+	bool is_dev_mode = false, is_dev_proc = false;
+
+	// developer mode && developer proc
+	if (!strcmp(developer_mode_state(), DEVELOPER_STATUS_ON)) {
+		code_sign_log_info("developer mode on");
+		is_dev_mode = true;
+		if (!code_sign_avc_has_perm(SECCLASS_XPM, XPM__EXEC_NO_SIGN)) {
+			is_dev_proc = true;
+		}
 	}
 
 	for (sinfo = pkcs7->signed_infos; sinfo; sinfo = sinfo->next) {
@@ -101,9 +114,17 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 			return;
 		}
 
-		struct cert_source *source = find_match(signer);
+		struct cert_source *source = find_match(signer, is_dev_proc);
 		if (source == NULL) {
-			code_sign_log_error("signer certificate's subject and issuer not trusted");
+			signer->subject = "ALL";
+			source = find_match(signer, is_dev_proc);
+			if (source == NULL) {
+				code_sign_log_error("signer certificate's subject and issuer not trusted");
+				*ret = -EKEYREJECTED;
+				return;
+			}
+		} else if (source->path_type == RELEASE_BLOCK_CODE || source->path_type == DEBUG_BLOCK_CODE) {
+			code_sign_log_error("signer certificate's type not trusted");
 			*ret = -EKEYREJECTED;
 			return;
 		}
@@ -120,7 +141,7 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 					break;
 				}
 				cert_chain_depth_without_root++;
-				// search agains for current issuer's issuer
+				// search again for current issuer's issuer
 				issuer = cert->issuer;
 				cert = pkcs7->certs;
 			} else {
@@ -130,7 +151,7 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 		}
 		if (cert_chain_depth_without_root == (source->max_path_depth - 1)) {
 			code_sign_log_info("cert subject and issuer trusted");
-			*ret = 0;
+			*ret = source->path_type;
 			return;
 		} else {
 			code_sign_log_error("depth mismatch: cert chain depth without root is %d, max_path_depth is %d",

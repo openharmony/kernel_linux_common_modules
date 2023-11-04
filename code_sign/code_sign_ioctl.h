@@ -3,6 +3,7 @@
  * Copyright (c) 2023 Huawei Device Co., Ltd.
  */
 
+#include <linux/code_sign.h>
 #include <linux/rbtree.h>
 #include <../../crypto/asymmetric_keys/pkcs7_parser.h>
 
@@ -15,24 +16,32 @@ struct cert_chain_info {
 	__u64 signing_ptr;
 	__u64 issuer_ptr;
 	__u32 path_len;
-	__u8 __reserved[36];
+	__s32 cert_type;
+	__u8 __reserved[32];
 };
 
 struct cert_source {
 	char *subject;
 	char *issuer;
-	int max_path_depth;
+	unsigned int max_path_depth;
+	int path_type;
+	unsigned int cnt;
 	struct rb_node node;
 };
 
-#define WRITE_CERT_CHAIN _IOW('k', 1, struct cert_chain_info)
+#define ADD_CERT_CHAIN _IOW('k', 1, struct cert_chain_info)
+#define REMOVE_CERT_CHAIN _IOW('k', 2, struct cert_chain_info)
 
 #define CERT_CHAIN_PATH_LEN_MAX 3
+
+#define KEY_ENABLE_CTX "u:r:key_enable:"
 
 /*
  * cert_chain.c
  */
-struct cert_source *find_match(struct x509_certificate *cert);
+struct cert_source *find_match(struct x509_certificate *cert, bool is_dev);
+
+int code_sign_avc_has_perm(u16 tclass, u32 requested);
 
 int code_sign_open(struct inode *inode, struct file *filp);
 
