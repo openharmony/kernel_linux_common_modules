@@ -21,7 +21,8 @@ ccflags-$(CONFIG_SECURITY_XPM) += \
 	-I$(srctree)/security/xpm/include \
 	-I$(srctree)/security/selinux/include \
 	-I$(srctree)/security/selinux \
-	-I$(srctree)/fs
+	-I$(srctree)/fs \
+	-I$(srctree)/fs/code_sign
 
 $(addprefix $(obj)/,$(obj-y)): $(obj)/flask.h
 
