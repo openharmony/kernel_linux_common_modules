@@ -43,7 +43,7 @@ enum auth_flag_type {
 #define INVALIED_AUTH_FLAG	0x00000000
 
 struct auth_ctrl_data {
-	unsigned int uid;
+	unsigned int pid;
 
 	/*
 	 * type:  operation type, see auth_manipulate_type, valid range [1, AUTH_MAX_NR)
@@ -66,8 +66,8 @@ enum auth_err_no {
 	ARG_INVALID = 1,
 	THREAD_EXITING,
 	DIRTY_QOS_POLICY,
-	UID_NOT_AUTHORIZED,
-	UID_NOT_FOUND,
+	PID_NOT_AUTHORIZED,
+	PID_NOT_FOUND,
 	PID_DUPLICATE,
 	PID_NOT_EXIST,
 	INVALID_AUTH,
