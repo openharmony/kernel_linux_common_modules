@@ -18,6 +18,7 @@
 #include "exec_signature_info.h"
 #include "xpm_report.h"
 #include "xpm_log.h"
+#include "code_sign_elf.h"
 
 #define VERITY_NODE_CACHE_LIMITS       10000
 #define VERITY_NODE_CACHE_RECYCLE_NUM  200
@@ -271,6 +272,11 @@ static int check_exec_file_is_verity(struct file *file)
 
 	if (is_dm_verity(file))
 		return FILE_SIGNATURE_DM_VERITY;
+
+#ifdef CONFIG_SECURITY_CODE_SIGN
+	if (!elf_file_enable_fs_verity(file))
+		return FILE_SIGNATURE_FS_VERITY;
+#endif
 
 	return FILE_SIGNATURE_INVALID;
 }
