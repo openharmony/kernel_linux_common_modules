@@ -11,6 +11,7 @@
 #include <linux/dcache.h>
 #include <linux/sched/mm.h>
 #include <linux/hck/lite_hck_xpm.h>
+#include <linux/fsverity.h>
 #include "avc.h"
 #include "objsec.h"
 #include "xpm_hck.h"
@@ -48,9 +49,22 @@ static int xpm_avc_has_perm(u16 tclass, u32 requested)
 static int xpm_validate_signature(struct vm_area_struct *vma,
 	struct exec_file_signature_info *info)
 {
+	unsigned long verified_data_end, vm_addr_end;
+	const struct inode *inode = (const struct inode *)info->inode;
+
 	if (IS_ERR_OR_NULL(info))
 		return xpm_avc_has_perm(SECCLASS_XPM, XPM__EXEC_NO_SIGN);
 
+	if(!exec_file_signature_is_fs_verity(info))
+		return 0;
+
+	vm_addr_end = (vma->vm_pgoff << PAGE_SHIFT)
+					+ (vma->vm_end - vma->vm_start);
+	verified_data_end = PAGE_ALIGN(fsverity_get_verified_data_size(inode));
+	if (verified_data_end < vm_addr_end) {
+		xpm_log_error("data is out of verified data size.");
+		return -EPERM;
+	}
 	return 0;
 }
 
