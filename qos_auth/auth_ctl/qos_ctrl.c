@@ -420,6 +420,7 @@ void sched_exit_qos_list(struct task_struct *p)
 	--auth->num[qts->in_qos];
 	list_del_init(&qts->qos_list);
 	qts->in_qos = NO_QOS;
+	put_task_struct(p);
 	mutex_unlock(&auth->mutex);
 
 out_put_auth:
