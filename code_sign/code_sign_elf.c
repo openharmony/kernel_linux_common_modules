@@ -173,16 +173,16 @@ int elf_file_enable_fs_verity(struct file *file)
 	}
 	int err = 0;
 	char *real_path = file_path(file, path_buf, PATH_MAX - 1);
-	if (!real_path) {
+	if (IS_ERR_OR_NULL(real_path)) {
 		code_sign_log_error("get file path failed");
-		err = -EFAULT;
+		err = -ENOENT;
 		goto release_path_buf_out;
 	}
 
 	struct file *fp = filp_open(real_path, O_RDONLY, 0);
-	if (!fp) {
+	if (IS_ERR(fp)) {
 		code_sign_log_error("filp_open failed");
-		err = -EFAULT;
+		err = PTR_ERR(fp);
 		goto release_path_buf_out;
 	}
 	struct inode *inode = file_inode(fp);
