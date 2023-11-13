@@ -62,6 +62,20 @@ static int pkcs7_find_key(struct pkcs7_message *pkcs7,
 	return 0;
 }
 
+static struct cert_source *find_matched_source(const struct x509_certificate *signer, bool is_debug)
+{
+	int block_type = is_debug ? DEBUG_BLOCK_CODE: RELEASE_BLOCK_CODE;
+	struct cert_source *source = find_match(signer->subject, signer->issuer, is_debug);
+
+	if (source == NULL) {
+		source = find_match("ALL", signer->issuer, is_debug);
+	} else if (source->path_type == block_type) {
+		code_sign_log_error("signer certificate's type not trusted");
+		return NULL;
+	}
+	return source;
+}
+
 void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *ret)
 {
 	struct pkcs7_message *pkcs7;
@@ -74,28 +88,24 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 		return;
 	}
 
+	if (!pkcs7->signed_infos) {
+		code_sign_log_error("signed info not found in pkcs7");
+		goto untrusted;
+	}
+
 	// no cert chain, verify by certificates in keyring
 	if (!pkcs7->certs) {
 		code_sign_log_warn("no certs in pkcs7, might be found in trust keyring");
 		*ret = MAY_LOCAL_CODE;
-		return;
+		goto exit;
 	}
 
-	if (!pkcs7->signed_infos) {
-		code_sign_log_error("signed info not found in pkcs7");
-		*ret = -EKEYREJECTED;
-		return;
-	}
-
-	bool is_dev_mode = false, is_dev_proc = false;
+	bool is_dev_mode = false;
 
 	// developer mode && developer proc
 	if (!strcmp(developer_mode_state(), DEVELOPER_STATUS_ON)) {
 		code_sign_log_info("developer mode on");
 		is_dev_mode = true;
-		if (!code_sign_avc_has_perm(SECCLASS_XPM, XPM__EXEC_NO_SIGN)) {
-			is_dev_proc = true;
-		}
 	}
 
 	for (sinfo = pkcs7->signed_infos; sinfo; sinfo = sinfo->next) {
@@ -103,30 +113,26 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 		*ret = pkcs7_find_key(pkcs7, sinfo);
 		if (*ret) {
 			code_sign_log_error("key not find in pkcs7");
-			return;
+			goto exit;
 		}
 
-		struct x509_certificate *signer = sinfo->signer;
-
+		const struct x509_certificate *signer = sinfo->signer;
 		if (!signer) {
 			code_sign_log_error("signer cert not found in pkcs7");
 			*ret = -EINVAL;
-			return;
+			goto exit;
 		}
 
-		struct cert_source *source = find_match(signer, is_dev_proc);
-		if (source == NULL) {
-			signer->subject = "ALL";
-			source = find_match(signer, is_dev_proc);
-			if (source == NULL) {
-				code_sign_log_error("signer certificate's subject and issuer not trusted");
-				*ret = -EKEYREJECTED;
-				return;
+		struct cert_source *source = find_matched_source(signer, false);
+		if (!source) {
+			if (is_dev_mode) {
+				// find on dev trusted list
+				source = find_matched_source(signer, true);
+				if (!source)
+					goto untrusted;
+			} else {
+				goto untrusted;
 			}
-		} else if (source->path_type == RELEASE_BLOCK_CODE || source->path_type == DEBUG_BLOCK_CODE) {
-			code_sign_log_error("signer certificate's type not trusted");
-			*ret = -EKEYREJECTED;
-			return;
 		}
 
 		// cal cert chain depth
@@ -152,14 +158,16 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 		if (cert_chain_depth_without_root == (source->max_path_depth - 1)) {
 			code_sign_log_info("cert subject and issuer trusted");
 			*ret = source->path_type;
-			return;
+			goto exit;
 		} else {
 			code_sign_log_error("depth mismatch: cert chain depth without root is %d, max_path_depth is %d",
 				cert_chain_depth_without_root, source->max_path_depth);
 		}
 	}
 
+untrusted:
 	code_sign_log_error("cert subject and issuer verify failed");
 	*ret = -EKEYREJECTED;
-	return;
+exit:
+	pkcs7_free_message(pkcs7);
 }
