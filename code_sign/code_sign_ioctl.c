@@ -16,7 +16,7 @@
 struct rb_root cert_chain_tree = RB_ROOT;
 struct rb_root dev_cert_chain_tree = RB_ROOT;
 
-struct cert_source *cert_chain_search(struct rb_root *root, char *subject, char *issuer)
+struct cert_source *cert_chain_search(struct rb_root *root, const char *subject, const char *issuer)
 {
 	struct rb_node **cur_node = &(root->rb_node);
 
@@ -44,12 +44,12 @@ struct cert_source *cert_chain_search(struct rb_root *root, char *subject, char 
 	return NULL;
 }
 
-struct cert_source *find_match(struct x509_certificate *cert, bool is_dev)
+struct cert_source *find_match(const char *subject, const char *issuer, bool is_dev)
 {
 	if (is_dev)
-		return cert_chain_search(&dev_cert_chain_tree, cert->subject, cert->issuer);
+		return cert_chain_search(&dev_cert_chain_tree, subject, issuer);
 	else
-		return cert_chain_search(&cert_chain_tree, cert->subject, cert->issuer);
+		return cert_chain_search(&cert_chain_tree, subject, issuer);
 }
 
 int code_sign_check_caller(char *caller)
