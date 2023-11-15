@@ -39,7 +39,7 @@ struct cert_source {
 /*
  * cert_chain.c
  */
-struct cert_source *find_match(struct x509_certificate *cert, bool is_dev);
+struct cert_source *find_match(const char *subject, const char *issuer, bool is_dev);
 
 int code_sign_avc_has_perm(u16 tclass, u32 requested);
 
