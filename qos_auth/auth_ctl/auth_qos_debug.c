@@ -33,9 +33,9 @@ do { \
 } while (0)
 
 static void print_auth_id(struct seq_file *file,
-	const int uid)
+	const int tgid)
 {
-	seq_printf_auth(file, "AUTH_ID            :%d\n", uid);
+	seq_printf_auth(file, "AUTH_PID            :%d\n", tgid);
 }
 
 static void print_auth_info(struct seq_file *file,

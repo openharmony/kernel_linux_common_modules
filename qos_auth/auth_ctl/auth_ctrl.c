@@ -53,8 +53,6 @@ struct mutex *get_auth_idr_mutex(void)
 	return &ua_idr_mutex;
 }
 
-static struct auth_struct auth_super;
-
 /*
  * change auth's status to SYSTEM and enable all feature access
  */
@@ -116,10 +114,8 @@ void put_auth_struct(struct auth_struct *auth)
 		__put_auth_struct(auth);
 }
 
-static int init_authority_control(void)
+static int init_ua_idr(void)
 {
-	int ret;
-
 	ua_idr = kzalloc(sizeof(*ua_idr), GFP_ATOMIC);
 	if (ua_idr == NULL) {
 		pr_err("[AUTH_CTRL] auth idr init failed, no memory!\n");
@@ -127,23 +123,31 @@ static int init_authority_control(void)
 	}
 
 	idr_init(ua_idr);
+	
+	return 0;
+}
 
-	init_authority_record(&auth_super);
-	change_to_super(&auth_super);
+static int init_super_authority(unsigned int auth_tgid)
+{
+	int ret;
+	struct auth_struct *auth_super;
 
-	ret = idr_alloc(ua_idr, &auth_super, SUPER_UID, SUPER_UID + 1, GFP_ATOMIC);
-	if (ret != SUPER_UID) {
+	auth_super = kzalloc(sizeof(*auth_super), GFP_ATOMIC);
+	if(auth_super == NULL) {
+		pr_err("[AUTH_CTRL] auth struct alloc failed\n");
+		return -ENOMEM;
+	}
+	init_authority_record(auth_super);
+	change_to_super(auth_super);
+
+	ret = idr_alloc(ua_idr, auth_super, auth_tgid, auth_tgid + 1, GFP_ATOMIC);
+	if(ret != auth_tgid) {
 		pr_err("[AUTH_CTRL] authority for super init failed! ret=%d\n", ret);
-		goto err;
+		kfree(auth_super);
+		return ret;
 	}
 
 	return 0;
-
-err:
-	idr_destroy(ua_idr);
-	kfree(ua_idr);
-
-	return ret;
 }
 
 int authority_remove_handler(int id, void *p, void *para)
@@ -197,12 +201,12 @@ static inline void set_auth_flag(struct auth_ctrl_data *data, struct auth_struct
 static int auth_enable(struct auth_ctrl_data *data)
 {
 	struct auth_struct *auth_to_enable;
-	unsigned int uid = data->uid;
+	unsigned int tgid = data->pid;
 	int status = data->status;
 	int ret;
 
 	mutex_lock(&ua_idr_mutex);
-	auth_to_enable = idr_find(ua_idr, uid);
+	auth_to_enable = idr_find(ua_idr, tgid);
 	/* auth exist, just resume the task's qos request */
 	if (auth_to_enable) {
 		get_auth_struct(auth_to_enable);
@@ -241,7 +245,7 @@ static int auth_enable(struct auth_ctrl_data *data)
 	set_auth_flag(data, auth_to_enable);
 	auth_to_enable->status = status;
 
-	ret = idr_alloc(ua_idr, auth_to_enable, uid, uid + 1, GFP_ATOMIC);
+	ret = idr_alloc(ua_idr, auth_to_enable, tgid, tgid + 1, GFP_ATOMIC);
 	if (ret < 0) {
 		pr_err("[AUTH_CTRL] add auth to idr failed, no memory!\n");
 		kfree(auth_to_enable);
@@ -256,14 +260,14 @@ out:
 static int auth_delete(struct auth_ctrl_data *data)
 {
 	struct auth_struct *auth_to_delete;
-	unsigned int uid = data->uid;
+	unsigned int tgid = data->pid;
 
 	mutex_lock(&ua_idr_mutex);
-	auth_to_delete = (struct auth_struct *)idr_remove(ua_idr, uid);
+	auth_to_delete = (struct auth_struct *)idr_remove(ua_idr, tgid);
 	if (!auth_to_delete) {
 		mutex_unlock(&ua_idr_mutex);
-		pr_err("[AUTH_CTRL] no auth data for this uid=%d, delete failed\n", uid);
-		return -UID_NOT_FOUND;
+		pr_err("[AUTH_CTRL] no auth data for this pid=%d, delete failed\n", tgid);
+		return -PID_NOT_FOUND;
 	}
 	mutex_unlock(&ua_idr_mutex);
 
@@ -282,14 +286,14 @@ static int auth_delete(struct auth_ctrl_data *data)
 static int auth_get(struct auth_ctrl_data *data)
 {
 	struct auth_struct *auth_to_get;
-	unsigned int uid = data->uid;
+	unsigned int tgid = data->pid;
 
 	mutex_lock(&ua_idr_mutex);
-	auth_to_get = idr_find(ua_idr, uid);
+	auth_to_get = idr_find(ua_idr, tgid);
 	if (!auth_to_get) {
 		mutex_unlock(&ua_idr_mutex);
-		pr_err("[AUTH_CTRL] no auth data for this uid=%d to get\n", uid);
-		return -UID_NOT_FOUND;
+		pr_err("[AUTH_CTRL] no auth data for this pid=%d to get\n", tgid);
+		return -PID_NOT_FOUND;
 	}
 	get_auth_struct(auth_to_get);
 	mutex_unlock(&ua_idr_mutex);
@@ -317,7 +321,7 @@ static int auth_get(struct auth_ctrl_data *data)
 static int auth_switch(struct auth_ctrl_data *data)
 {
 	struct auth_struct *auth;
-	unsigned int uid = data->uid;
+	unsigned int tgid = data->pid;
 	unsigned int status = data->status;
 
 	if (status == 0 || status >= AUTH_STATUS_MAX_NR) {
@@ -326,11 +330,11 @@ static int auth_switch(struct auth_ctrl_data *data)
 	}
 
 	mutex_lock(&ua_idr_mutex);
-	auth = idr_find(ua_idr, uid);
+	auth = idr_find(ua_idr, tgid);
 	if (!auth) {
 		mutex_unlock(&ua_idr_mutex);
-		pr_err("[AUTH_CTRL] no auth data for this uid to switch=%d\n", uid);
-		return -UID_NOT_FOUND;
+		pr_err("[AUTH_CTRL] no auth data for this pid=%d to switch\n", tgid);
+		return -PID_NOT_FOUND;
 	}
 	get_auth_struct(auth);
 	mutex_unlock(&ua_idr_mutex);
@@ -358,10 +362,10 @@ typedef int (*auth_manipulate_func)(struct auth_ctrl_data *data);
 
 static auth_manipulate_func auth_func_array[AUTH_MAX_NR] = {
 	/*
-	 * auth_enable: Start authority control for specific uid.
+	 * auth_enable: Start authority control for specific tgid.
 	 * auth_delte:  End authroity control, remove statistic datas.
 	 * auth_get:    Get auth info, deprecated.
-	 * auth_switch: Change authority flag and status for specific uid.
+	 * auth_switch: Change authority flag and status for specific tgid.
 	 */
 	NULL,
 	auth_enable,
@@ -523,6 +527,7 @@ bool check_authorized(unsigned int func_id, unsigned int type)
 	struct auth_struct *auth;
 	unsigned int af = get_authority_flag(func_id);
 	unsigned int uid = get_authority_uid(NULL);
+	unsigned int tgid = task_tgid_nr(current);
 
 	mutex_lock(&ua_idr_mutex);
 	if (!ua_idr) {
@@ -531,19 +536,31 @@ bool check_authorized(unsigned int func_id, unsigned int type)
 		return authorized;
 	}
 
-	auth = (struct auth_struct *)idr_find(ua_idr, uid);
+	auth = (struct auth_struct *)idr_find(ua_idr, tgid);
 	if (!auth) {
-		mutex_unlock(&ua_idr_mutex);
-		pr_err("[AUTH_CTRL] no auth data for this uid=%d\n", uid);
-		return authorized;
+		if (uid != SUPER_UID) {
+			mutex_unlock(&ua_idr_mutex);
+			pr_err("[AUTH_CTRL] no auth data for this pid = %d\n, tgid");
+			return authorized;
+		} else if (init_super_authority(tgid)) {
+			mutex_unlock(&ua_idr_mutex);
+			pr_err("[AUTH_CTRL] init super authority failed\n");
+			return authorized;
+		}
+
+		//the auth must exist
+		auth = (struct auth_struct *)idr_find(ua_idr, tgid);
+		if (!auth)
+			return authorized;
 	}
+
 	get_auth_struct(auth);
 	mutex_unlock(&ua_idr_mutex);
 
 	mutex_lock(&auth->mutex);
 	if (auth->status == AUTH_STATUS_DEAD) {
 		mutex_unlock(&auth->mutex);
-		pr_info("[AUTH_CTRL] not valied auth for uid %d\n", uid);
+		pr_info("[AUTH_CTRL] not valid auth for pid %d\n", tgid);
 		put_auth_struct(auth);
 		return authorized;
 	}
@@ -560,18 +577,21 @@ bool check_authorized(unsigned int func_id, unsigned int type)
 /*
  * Return authority info for given task
  * return current's auth if p is NULL
- * recount will inc if this call return the valid auth
+ * refcount will inc if this call return the valid auth
  * make sure to call put_auth_struct before the calling end
  */
 struct auth_struct *get_authority(struct task_struct *p)
 {
-	unsigned int uid = get_authority_uid(p);
+	unsigned int tgid;
 	struct auth_struct *auth;
 
+	tgid = (p == NULL ? current->tgid : p->tgid);
+
 	mutex_lock(&ua_idr_mutex);
-	auth = idr_find(ua_idr, uid);
+	auth = idr_find(ua_idr, tgid);
 	if (auth)
 		get_auth_struct(auth);
+
 	mutex_unlock(&ua_idr_mutex);
 
 	return auth;
@@ -616,7 +636,7 @@ static __init int auth_ctrl_init_module(void)
 
 	pr_info("auth_ctrl init success\n");
 
-	BUG_ON(init_authority_control());
+	BUG_ON(init_ua_idr());
 
 #ifdef CONFIG_QOS_CTRL
 	init_qos_ctrl();

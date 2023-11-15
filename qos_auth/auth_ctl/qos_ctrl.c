@@ -23,6 +23,8 @@ typedef long (*qos_ctrl_func)(int abi, void __user *uarg);
 static long ctrl_qos_operation(int abi, void __user *uarg);
 static long ctrl_qos_policy(int abi, void __user *uarg);
 
+#define QOS_LEVEL_SET_MAX 5
+
 static qos_ctrl_func g_func_array[QOS_CTRL_MAX_NR] = {
 	NULL, /* reserved */
 	ctrl_qos_operation,
@@ -176,23 +178,21 @@ static int qos_remove_task(struct task_struct *p)
 	return 0;
 }
 
-static inline bool same_uid(struct task_struct *dude, struct task_struct *bro)
-{
-	return uid_eq(task_uid(dude), task_uid(bro));
-}
-
 static inline bool super_user(struct task_struct *p)
 {
 	return super_uid(task_uid(p).val);
 }
 
 /*
- * judge permission for changing other tasks' qos
+ * judge permission for changing tasks' qos
  */
-static bool can_change_qos(struct task_struct *p)
+static bool can_change_qos(struct task_struct *p, unsigned int qos_level)
 {
-	if (p != current && !same_uid(current, p) && !super_user(current)) {
-		pr_err("[QOS_CTRL] %d apply for others not permit\n", p->pid);
+	struct auth_struct *auth;
+	auth = get_authority(p);
+	/* just system & root user can set(be setted) high qos level */
+	if (!auth || (auth && !super_user(p) && qos_level > QOS_LEVEL_SET_MAX)) {
+		pr_err("[QOS_CTRL] %d have no permission to change qos\n", p->pid);
 		return false;
 	}
 
@@ -227,19 +227,18 @@ int qos_apply(struct qos_ctrl_data *data)
 		goto out_put_task;
 	}
 
-	if (!can_change_qos(p)) {
-		pr_err("[QOS_CTRL] apply for others not permit\n");
+	if (!can_change_qos(current, level)) {
+		pr_err("[QOS_CTRL] QOS apply not permit\n");
 		ret = -ARG_INVALID;
 		goto out_put_task;
 	}
 
 	auth = get_authority(p);
 	if (!auth) {
-		pr_err("[QOS_CTRL] no auth data for pid=%d(%s) this uid=%d, qos apply failed\n",
-		       p->pid, p->comm, p->cred->uid.val);
-		put_task_struct(p);
-		ret = -UID_NOT_FOUND;
-		goto out;
+		pr_err("[QOS_CTRL] no auth data for pid=%d(%s), qos apply failed\n",
+		       p->tgid, p->comm);
+		ret = -PID_NOT_FOUND;
+		goto out_put_task;
 	}
 
 	mutex_lock(&auth->mutex);
@@ -315,19 +314,12 @@ int qos_leave(struct qos_ctrl_data *data)
 		goto out_put_task;
 	}
 
-	if (!can_change_qos(p)) {
-		pr_err("[QOS_CTRL] apply for others not permit\n");
-		ret = -ARG_INVALID;
-		goto out_put_task;
-	}
-
 	auth = get_authority(p);
 	if (!auth) {
-		pr_err("[QOS_CTRL] no auth data for pid=%d(%s) this uid=%d, qos stop failed\n",
-		       p->pid, p->comm, p->cred->uid.val);
-		put_task_struct(p);
-		ret = -UID_NOT_FOUND;
-		goto out;
+		pr_err("[QOS_CTRL] no auth data for pid=%d(%s), qos stop failed\n",
+		       p->tgid, p->comm);
+		ret = -PID_NOT_FOUND;
+		goto out_put_task;
 	}
 
 	mutex_lock(&auth->mutex);
@@ -335,9 +327,14 @@ int qos_leave(struct qos_ctrl_data *data)
 	qts = (struct qos_task_struct *) &p->qts;
 
 	level = qts->in_qos;
-
 	if (level == NO_QOS) {
 		pr_err("[QOS_CTRL] task not in qos list, qos stop failed\n");
+		ret = -ARG_INVALID;
+		goto out_unlock;
+	}
+
+	if (!can_change_qos(current, 0)) {
+		pr_err("[QOS_CTRL] apply for others not permit\n");
 		ret = -ARG_INVALID;
 		goto out_unlock;
 	}
@@ -672,8 +669,8 @@ long do_qos_ctrl_ioctl(int abi, struct file *file, unsigned int cmd, unsigned lo
 
 #ifdef CONFIG_QOS_AUTHORITY
 	if (!check_authorized(func_cmd, QOS_AUTH_FLAG)) {
-		pr_err("[QOS_CTRL] %s: uid not authorized\n", __func__);
-		return -UID_NOT_AUTHORIZED;
+		pr_err("[QOS_CTRL] %s: pid not authorized\n", __func__);
+		return -PID_NOT_AUTHORIZED;
 	}
 #endif
 
