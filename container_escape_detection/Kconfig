@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+#
+config SECURITY_CONTAINER_ESCAPE_DETECTION
+	bool "Enable container escape detection"
+	default n
+	depends on SECURITY_SELINUX
+	help
+	  Build support for container escape detection.
