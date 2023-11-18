@@ -267,7 +267,6 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 			if (ret) {
 				// developer cert
 				code_sign_log_debug("add developer cert");
-				source->cnt++;
 				ret = cert_chain_insert(&dev_cert_chain_tree, source);
 			} else {
 				code_sign_log_debug("add release cert");
@@ -292,10 +291,13 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 			if (ret) {
 				// developer cert
 				code_sign_log_debug("remove developer cert");
-				cert_chain_remove(&dev_cert_chain_tree, source);
+				ret = cert_chain_remove(&dev_cert_chain_tree, source);
 			} else {
 				code_sign_log_debug("remove release cert");
-				cert_chain_remove(&cert_chain_tree, source);
+				ret = cert_chain_remove(&cert_chain_tree, source);
+			}
+			if (ret) {
+				code_sign_log_error("remove cert failed.");
 			}
 			break;
 		default:
