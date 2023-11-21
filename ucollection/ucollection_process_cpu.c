@@ -40,6 +40,28 @@ static int get_cpu_num(void)
 	return core_num;
 }
 
+static void get_process_flt(struct task_struct *task, unsigned long long *min_flt, unsigned long long *maj_flt)
+{
+	unsigned long tmp_min_flt = 0;
+	unsigned long tmp_maj_flt = 0;
+
+	struct task_struct *t = task;
+	do {
+		tmp_min_flt += t->min_flt;
+		tmp_maj_flt += t->maj_flt;
+
+	} while_each_thread(task, t);
+
+	struct signal_struct *sig = task->signal;
+	if (sig != NULL) {
+		tmp_min_flt += sig->min_flt;
+		tmp_maj_flt += sig->maj_flt;
+	}
+
+	*min_flt = tmp_min_flt;
+	*maj_flt = tmp_maj_flt;
+}
+
 static unsigned long long get_process_load_cputime(struct task_struct *task)
 {
 	unsigned long long proc_load_cputime = 0;
@@ -66,6 +88,7 @@ static void get_process_load(struct task_struct *task, int cpu_num, int cur_coun
 	struct ucollection_process_cpu_item proc_cpu_entry;
 	memset(&proc_cpu_entry, 0, sizeof(struct ucollection_process_cpu_item));
 	proc_cpu_entry.pid = task->pid;
+	get_process_flt(task, &proc_cpu_entry.min_flt, &proc_cpu_entry.maj_flt);
 	proc_cpu_entry.cpu_load_time = get_process_load_cputime(task);
 	get_process_usage_cputime(task, &proc_cpu_entry.cpu_usage_utime, &proc_cpu_entry.cpu_usage_stime);
 	(void)copy_to_user(&entry->datas[cur_count], &proc_cpu_entry, sizeof(struct ucollection_process_cpu_item));
