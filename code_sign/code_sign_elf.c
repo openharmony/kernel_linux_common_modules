@@ -100,7 +100,7 @@ static int get_fsverity_desc(sign_block_t *sign_block, char *sign_data_ptr)
 	return 0;
 }
 
-static int enable_by_sign_head(struct file *fp, long long fsize, char *sign_head_ptr)
+static int enable_by_sign_head(struct file *fp, struct inode *inode, long long fsize, char *sign_head_ptr)
 {
 	sign_block_t sign_block;
 	memset(&sign_block, 0, sizeof(sign_block));
@@ -146,13 +146,28 @@ static int enable_by_sign_head(struct file *fp, long long fsize, char *sign_head
 		goto out;
 	}
 
+	err = mnt_want_write_file(fp);
+	if (err) /* -EROFS */
+		goto out;
+
+	err = deny_write_access(fp);
+	if (err) /* -ETXTBSY */
+		goto out_drop_write;
+
 	/* fsverity_enable_with_descriptor in fs/verity/enable.c */
 	err = fsverity_enable_with_descriptor(fp, (void *)(sign_block.fsverity_desc), sign_block.fsverity_desc_hdr.length);
 	if (err) {
 		code_sign_log_error("fsverity_enable_with_descriptor returns err: %d", err);
-		goto out;
+		goto out_allow_write_access;
 	}
 
+	filemap_write_and_wait(inode->i_mapping);
+	invalidate_inode_pages2(inode->i_mapping);
+
+out_allow_write_access:
+	allow_write_access(fp);
+out_drop_write:
+	mnt_drop_write_file(fp);
 out:
 	kfree(sign_data_ptr);
 	return err;
@@ -233,7 +248,7 @@ int elf_file_enable_fs_verity(struct file *file)
 		goto release_sign_head_out;
 	}
 
-	err = enable_by_sign_head(fp, fsize, sign_head_ptr);
+	err = enable_by_sign_head(fp, inode, fsize, sign_head_ptr);
 	if (err) {
 		code_sign_log_error("enable_by_sign_head err: %d", err);
 		goto release_sign_head_out;
