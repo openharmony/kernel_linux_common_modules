@@ -40,7 +40,6 @@ static bool dm_verity_enable_check;
 
 #define DM_PARTITION_PATH_MAX	20
 #define DM_VERITY_INVALID_DEV	((dev_t)-1)
-#define SYSTTEM_STARTUP_SECOND_STAGE	"/system/bin/init"
 
 struct dm_partition {
 	char path[DM_PARTITION_PATH_MAX];
@@ -75,42 +74,55 @@ static dev_t get_file_dev(struct file *file)
 	return sb->s_dev;
 }
 
-static dev_t get_dm_verity_partition_dev(const char *dir)
+static dev_t get_partition_dev_form_mnt(const struct vfsmount *mnt)
+{
+	if (IS_ERR_OR_NULL(mnt) || IS_ERR_OR_NULL(mnt->mnt_sb)) {
+		return DM_VERITY_INVALID_DEV;
+	}
+	return mnt->mnt_sb->s_dev;
+}
+
+static dev_t get_root_partition_dev(struct path *root_path)
 {
 	int ret;
 	struct path path;
-	struct vfsmount *mnt;
+	struct path *mount_path = &path;
 	dev_t s_dev;
 
-	if (root_path.dentry == NULL) {
-		ret = kern_path("/", LOOKUP_DIRECTORY, &path);
-		if (ret) {
-			xpm_log_error("get / path failed.");
-			return DM_VERITY_INVALID_DEV;
-		}
-	} else {
-		ret = vfs_path_lookup(root_path.dentry, root_path.mnt, dir, LOOKUP_DIRECTORY, &path);
-		if (ret) {
-			xpm_log_error("get %s path failed.", dir);
-			return DM_VERITY_INVALID_DEV;
-		}
+	if (root_path != NULL) {
+		mount_path = root_path;
 	}
-
-	mnt = path.mnt;
-	if (IS_ERR(mnt) || IS_ERR(mnt->mnt_sb)) {
-		path_put(&path);
-		xpm_log_error("get %s dev failed.", dir);
+	ret = kern_path("/", LOOKUP_DIRECTORY, mount_path);
+	if (ret) {
+		xpm_log_error("get / path failed.");
 		return DM_VERITY_INVALID_DEV;
 	}
+	s_dev = get_partition_dev_form_mnt(mount_path->mnt);
+	if (s_dev == DM_VERITY_INVALID_DEV || root_path == NULL) {
+		path_put(mount_path);
+	}
+	xpm_log_info("get / dev=%u:%u success", s_dev, MINOR(s_dev));
+	return s_dev;
+}
 
-	s_dev = mnt->mnt_sb->s_dev;
+static dev_t get_dm_verity_partition_dev(const char *dir, struct path *root_path)
+{
+	int ret;
+	struct path path;
+	dev_t s_dev;
+
+	ret = vfs_path_lookup(root_path->dentry, root_path->mnt, dir, LOOKUP_DIRECTORY, &path);
+	if (ret) {
+		xpm_log_error("get %s path failed", dir);
+		return DM_VERITY_INVALID_DEV;
+	}
+	s_dev = get_partition_dev_form_mnt(path.mnt);
 	path_put(&path);
-
 	xpm_log_info("get %s dev=%u:%u success", dir, s_dev, MINOR(s_dev));
 	return s_dev;
 }
 
-static bool find_partition_dev(struct file *file)
+static bool find_partition_dev(struct file *file, dev_t s_dev)
 {
 	char *full_path = NULL;
 	char path[PATH_MAX] = {0};
@@ -130,10 +142,10 @@ static bool find_partition_dev(struct file *file)
 		if (strncmp(dm_path->path, full_path, dm_path->len) != 0)
 			continue;
 
-		dm_path->s_dev = get_dm_verity_partition_dev(dm_path->path);
+		dm_path->s_dev = get_dm_verity_partition_dev(dm_path->path, &root_path);
 		if (dm_path->s_dev == DM_VERITY_INVALID_DEV)
 			return false;
-		if (dm_path->s_dev == get_file_dev(file))
+		if (dm_path->s_dev == s_dev)
 			return true;
 		return false;
 	}
@@ -144,38 +156,30 @@ static bool find_partition_dev(struct file *file)
 static bool dm_verity_check_for_path(struct file *file)
 {
 	static int system_startup_stage;
-	char *full_path;
-	char path[PATH_MAX] = {0};
 	struct dm_partition *dm_path;
-	dev_t s_dev;
-	int i, ret;
+	dev_t s_dev, root_dev;
+	int i;
 
 	s_dev = get_file_dev(file);
-	if (!system_startup_stage) {
-		full_path = file_path(file, path, PATH_MAX - 1);
-		if (IS_ERR(full_path))
-			return false;
-		if (strcmp(SYSTTEM_STARTUP_SECOND_STAGE, full_path) != 0) {
-			dm_path = &dm_partition_table[0];
-			if (dm_path->s_dev == s_dev)
-				return true;
-			return false;
-		}
-		ret = kern_path("/", LOOKUP_DIRECTORY, &root_path);
-		if (ret) {
-			xpm_log_error("get / path failed.");
-			return false;
-		}
-		system_startup_stage = 1;
-	}
-
-	for (i = 1; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++) {
+	for (i = 0; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++) {
 		dm_path = &dm_partition_table[i];
 		if (dm_path->s_dev == s_dev)
 			return true;
 	}
 
-	return find_partition_dev(file);
+	if (!system_startup_stage) {
+		root_dev = get_root_partition_dev(NULL);
+		if (root_dev != dm_partition_table[0].s_dev) {
+			path_put(&root_path);
+			dm_partition_table[0].s_dev = get_root_partition_dev(&root_path);
+			for (i = 1; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++) {
+				dm_partition_table[i].s_dev = DM_VERITY_INVALID_DEV;
+			}
+			system_startup_stage = 1;
+		}
+	}
+
+	return find_partition_dev(file, s_dev);
 }
 
 #ifdef CONFIG_DM_VERITY
@@ -191,7 +195,7 @@ static int hvb_boot_param_cb(char *param, char *val,
 	if (strcmp(param, HVB_CMDLINE_VB_STATE) != 0)
 		return 0;
 
-	if (strcmp(val, "true") == 0 || strcmp(val, "TRUE") == 0)
+	if (strcmp(val, "true") == 0 || strcmp(val, "green") == 0)
 		dm_verity_enable = true;
 
 	return 0;
@@ -213,7 +217,7 @@ static bool dm_verity_is_enable(void)
 	kfree(cmdline);
 	dm_verity_enable_check = true;
 	if (!dm_verity_enable) {
-		dm_partition_table[0].s_dev = get_dm_verity_partition_dev(dm_partition_table[0].path);
+		dm_partition_table[0].s_dev = get_root_partition_dev(&root_path);
 		report_init_event(TYPE_DM_DISABLE);
 	}
 	return dm_verity_enable;
@@ -240,7 +244,7 @@ static bool is_dm_verity(struct file *file)
 #endif
 
 	if (!dm_verity_enable_check) {
-		dm_partition_table[0].s_dev = get_dm_verity_partition_dev(dm_partition_table[0].path);
+		dm_partition_table[0].s_dev = get_root_partition_dev(&root_path);
 		dm_verity_enable_check = true;
 		report_init_event(TYPE_DM_DISABLE);
 	}
