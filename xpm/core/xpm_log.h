@@ -6,8 +6,6 @@
 #ifndef _XPM_LOG_H
 #define _XPM_LOG_H
 
-#define XPM_CHECK_FAILED (-1024)
-
 #define XPM_TAG "xpm_kernel"
 #define XPM_INFO_TAG  "I"
 #define XPM_ERROR_TAG "E"

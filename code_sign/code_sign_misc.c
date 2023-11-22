@@ -37,6 +37,10 @@ static void code_sign_register_hck_hooks(void)
 static int __init code_sign_init(void)
 {
 	code_sign_log_info("INIT");
+
+	/* init module init real time as salt for ownerid calculate */
+	code_sign_init_salt();
+
 	code_sign_register_hck_hooks();
 	return misc_register(&code_sign_misc);
 }

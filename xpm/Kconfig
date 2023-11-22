@@ -9,6 +9,7 @@ menu "Executable permission manager"
 config SECURITY_XPM
 	def_bool $(success, $(srctree)/scripts/ohos-check-dir.sh $(srctree)/security/xpm)
 	depends on 64BIT
+	depends on SECURITY_CODE_SIGN
 	help
 	  The Executable Permission Manager(XPM) control process execution
 	  by inserting control poliy into the security hook list, such as execv,
@@ -22,7 +23,7 @@ config DSMM_DEVELOPER_ENABLE
 	help
 	  This option should only be enabled for the device support developer
 	  mode feature. But whether or not developer mode is enabled on the
-	  device ultimately depends on the developer_mode valude in cmdline.
+	  device ultimately depends on the developer_mode string in cmdline.
 
 config SECURITY_XPM_DEBUG
 	bool "Enables excutable permission manager debug mode"
