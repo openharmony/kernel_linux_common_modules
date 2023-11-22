@@ -9,7 +9,8 @@
 #include <linux/verification.h>
 #include <crypto/pkcs7.h>
 #include "objsec.h"
-#include "../../security/xpm/include/dsmm_developer.h"
+#include "dsmm_developer.h"
+#include "code_sign_ext.h"
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
 #include "verify_cert_chain.h"
@@ -62,6 +63,43 @@ static int pkcs7_find_key(struct pkcs7_message *pkcs7,
 	return 0;
 }
 
+static void set_file_ownerid(struct cs_info *cs_info, int path_type,
+	struct pkcs7_signed_info *sinfo)
+{
+	/* Mark a debug file as OWNERID_DEBUG */
+	if((path_type > DEBUG_CODE_START) && (path_type < DEBUG_CODE_END)) {
+		code_sign_set_ownerid(cs_info, FILE_OWNERID_DEBUG, NULL, 0);
+		return;
+	}
+
+	/* Mark the file as OWNERID_COMPAT, if its ownerid is empty */
+	if(!sinfo->ownerid) {
+		code_sign_set_ownerid(cs_info, FILE_OWNERID_COMPAT, NULL, 0);
+		return;
+	}
+
+	/* Mark the file as OWNERID_SHARED, if the file is shareable */
+	if((sinfo->ownerid_len == strlen(OWNERID_SHARED_TAG)) &&
+		!memcmp(sinfo->ownerid, OWNERID_SHARED_TAG,
+			sinfo->ownerid_len)) {
+		code_sign_set_ownerid(cs_info, FILE_OWNERID_SHARED, NULL, 0);
+		return;
+	}
+
+	/* If this code is signed on the device, check whether it is DEBUG_ID */
+	if((path_type = MAY_LOCAL_CODE) &&
+		(sinfo->ownerid_len == strlen(OWNERID_DEBUG_TAG)) &&
+		!memcmp(sinfo->ownerid, OWNERID_DEBUG_TAG,
+			sinfo->ownerid_len)) {
+		code_sign_set_ownerid(cs_info, FILE_OWNERID_DEBUG, NULL, 0);
+		return;
+	}
+
+	/* Mark the file OWNERID_APP in other cases */
+	code_sign_set_ownerid(cs_info, FILE_OWNERID_APP,
+		sinfo->ownerid, sinfo->ownerid_len);
+}
+
 static struct cert_source *find_matched_source(const struct x509_certificate *signer, bool is_debug)
 {
 	int block_type = is_debug ? DEBUG_BLOCK_CODE: RELEASE_BLOCK_CODE;
@@ -76,7 +114,8 @@ static struct cert_source *find_matched_source(const struct x509_certificate *si
 	return source;
 }
 
-void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *ret)
+void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len,
+	struct cs_info *cs_info, int *ret)
 {
 	struct pkcs7_message *pkcs7;
 	struct pkcs7_signed_info *sinfo;
@@ -103,7 +142,7 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 	bool is_dev_mode = false;
 
 	// developer mode && developer proc
-	if (!strcmp(developer_mode_state(), DEVELOPER_STATUS_ON)) {
+	if (get_developer_mode_state() == STATE_ON) {
 		code_sign_log_info("developer mode on");
 		is_dev_mode = true;
 	}
@@ -157,6 +196,7 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len, int *re
 		}
 		if (cert_chain_depth_without_root == (source->max_path_depth - 1)) {
 			code_sign_log_info("cert subject and issuer trusted");
+			set_file_ownerid(cs_info, source->path_type, pkcs7->signed_infos);
 			*ret = source->path_type;
 			goto exit;
 		} else {

@@ -176,7 +176,7 @@ out:
 int elf_file_enable_fs_verity(struct file *file)
 {
 	/* developer mode */
-	if (strcmp(developer_mode_state(), DEVELOPER_STATUS_ON)) {
+	if (get_developer_mode_state() != STATE_ON) {
 		code_sign_log_info("developer mode off, elf not allowed to execute");
 		return -EINVAL;
 	}
