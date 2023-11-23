@@ -104,7 +104,7 @@ struct qos_policy_datas {
 	 */
 	int policy_type;
 	unsigned int policy_flag;
-	struct qos_policy_data policys[NR_QOS + 1];
+	struct qos_policy_data policys[NR_QOS];
 };
 
 struct auth_struct;
