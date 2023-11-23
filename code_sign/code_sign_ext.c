@@ -5,9 +5,12 @@
 
 #include <linux/code_sign.h>
 #include <linux/fsverity.h>
+#include <linux/stringhash.h>
 
 #include "code_sign_ext.h"
 #include "code_sign_log.h"
+
+static time64_t cs_salt;
 
 /**
  * Validate code sign descriptor
@@ -81,4 +84,24 @@ void code_sign_after_measurement(void *_desc, int version)
 		desc->cs_version = desc->version;
 		desc->version = version;
 	}
+}
+
+void code_sign_init_salt(void)
+{
+	cs_salt = ktime_get_real_seconds();
+}
+
+void code_sign_set_ownerid(struct cs_info *cs_info, uint32_t id_type,
+	const char *id_str, uint32_t id_len)
+{
+	if (!cs_info) {
+		code_sign_log_error("Input cs_info is NULL");
+		return;
+	}
+
+	cs_info->id_type = id_type;
+	if (!id_str || id_len == 0)
+		cs_info->ownerid = 0;
+	else
+		cs_info->ownerid = full_name_hash(cs_salt, id_str, id_len);
 }

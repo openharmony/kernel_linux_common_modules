@@ -4,6 +4,7 @@
  */
 
 #include <linux/proc_fs.h>
+
 #include "dsmm_developer.h"
 #include "xpm_log.h"
 
@@ -12,20 +13,21 @@
 #define DSMM_DEVELOPER_PARAM_NAME "const.security.developermode.state"
 
 static struct proc_dir_entry *g_dsmm_dir;
+static uint32_t developer_state = STATE_UNINT;
 
-static const char *g_developer_status[BUILD_VARIANT_MAX][DEVELOPER_PROC_STATUS_MAX] = {
-	{ DEVELOPER_STATUS_OFF, DEVELOPER_STATUS_ON, DEVELOPER_STATUS_OFF },
-	{ DEVELOPER_STATUS_ON, DEVELOPER_STATUS_ON, DEVELOPER_STATUS_OFF },
+static uint32_t g_state_table[BUILD_VARIANT_MAX][CMDLINE_DEV_STATE_MAX] = {
+	{ STATE_OFF, STATE_ON, STATE_OFF },
+	{ STATE_ON, STATE_ON, STATE_ON },
 };
 
 static int get_developer_status(uint32_t *status)
 {
 	if (!strstr(saved_command_line, "developer_mode=")) {
-		*status = DEVELOPER_PROC_STATUS_NA;
+		*status = CMDLINE_DEV_STATE_NA;
 	} else if (strstr(saved_command_line, "developer_mode=1")) {
-		*status = DEVELOPER_PROC_STATUS_ON;
+		*status = CMDLINE_DEV_STATE_ON;
 	} else if (strstr(saved_command_line, "developer_mode=0")) {
-		*status = DEVELOPER_PROC_STATUS_OFF;
+		*status = CMDLINE_DEV_STATE_OFF;
 	} else {
 		xpm_log_error("invalid developer_mode value in cmdline");
 		return -EINVAL;
@@ -48,20 +50,25 @@ static int get_build_variant(uint32_t *variant)
 	return 0;
 }
 
-const char *developer_mode_state(void)
+int get_developer_mode_state(void)
 {
 	uint32_t variant, status;
+
+	if (developer_state != STATE_UNINT)
+		return developer_state;
 
 #ifdef CONFIG_DSMM_DEVELOPER_ENABLE
 	if (get_build_variant(&variant) || get_developer_status(&status)) {
 		xpm_log_error("get build variant or developer status failed");
-		return NULL;
+		developer_state = STATE_OFF;
+	} else {
+		developer_state = g_state_table[variant][status];
 	}
-
-	return g_developer_status[variant][status];
 #else
-	return DEVELOPER_STATUS_ON;
+	developer_state = STATE_ON;
 #endif
+
+	return developer_state;
 }
 
 #define PROC_DEVELOPER_LEN 50
@@ -69,16 +76,13 @@ static ssize_t dsmm_read_developer_proc(struct file *file, char __user *buf,
 	size_t count, loff_t *pos)
 {
 	size_t len;
+	uint32_t state;
 	char proc_developer[PROC_DEVELOPER_LEN] = {0};
-	const char *developer_state = developer_mode_state();
 
-	if (!developer_state) {
-		xpm_log_error("developer mode state invalid");
-		return 0;
-	}
-
+	state = get_developer_mode_state();
 	len = snprintf(proc_developer, PROC_DEVELOPER_LEN - 1,
-		DSMM_DEVELOPER_PARAM_NAME"=%s", developer_state);
+		DSMM_DEVELOPER_PARAM_NAME"=%s",
+		state == STATE_ON ? "true" : "false");
 
 	return simple_read_from_buffer(buf, count, pos, proc_developer, len);
 }

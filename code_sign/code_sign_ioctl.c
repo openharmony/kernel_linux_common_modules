@@ -9,7 +9,7 @@
 #include <linux/compat.h>
 #include "avc.h"
 #include "objsec.h"
-#include "../../security/xpm/include/dsmm_developer.h"
+#include "dsmm_developer.h"
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
 
@@ -231,7 +231,7 @@ int code_sign_check_code(int code)
 		return is_dev_mode;
 
 	// developer mode
-	if (!strcmp(developer_mode_state(), DEVELOPER_STATUS_ON)) {
+	if (get_developer_mode_state() == STATE_ON) {
 		code_sign_log_debug("developer mode on");
 		is_dev_mode = 1;
 	}

@@ -218,7 +218,7 @@ static bool dm_verity_is_enable(void)
 	dm_verity_enable_check = true;
 	if (!dm_verity_enable) {
 		dm_partition_table[0].s_dev = get_root_partition_dev(&root_path);
-		report_init_event(TYPE_DM_DISABLE);
+		report_init_event(DM_DISABLE);
 	}
 	return dm_verity_enable;
 }
@@ -246,7 +246,7 @@ static bool is_dm_verity(struct file *file)
 	if (!dm_verity_enable_check) {
 		dm_partition_table[0].s_dev = get_root_partition_dev(&root_path);
 		dm_verity_enable_check = true;
-		report_init_event(TYPE_DM_DISABLE);
+		report_init_event(DM_DISABLE);
 	}
 	return dm_verity_check_for_path(file);
 }
@@ -267,7 +267,7 @@ static bool is_fs_verity(struct file *file)
 }
 #endif
 
-static int check_exec_file_is_verity(struct file *file)
+static int check_exec_file_is_verity(struct file *file, bool is_exec)
 {
 #ifdef CONFIG_FS_VERITY
 	if (is_fs_verity(file))
@@ -278,7 +278,7 @@ static int check_exec_file_is_verity(struct file *file)
 		return FILE_SIGNATURE_DM_VERITY;
 
 #ifdef CONFIG_SECURITY_CODE_SIGN
-	if (!elf_file_enable_fs_verity(file))
+	if (is_exec && !elf_file_enable_fs_verity(file))
 		return FILE_SIGNATURE_FS_VERITY;
 #endif
 
@@ -531,8 +531,10 @@ need_parse:
 			return -ENOMEM;
 	} else {
 		ret = parse_elf_code_segment_info(file, &new_info);
-		if (ret < 0)
+		if (ret < 0) {
+			report_file_event(FORMAT_UNDEF, file);
 			return ret;
+		}
 #ifdef CONFIG_SECURITY_XPM_DEBUG
 		test_print_info(file, type, new_info);
 #endif
@@ -555,7 +557,7 @@ int get_exec_file_signature_info(struct file *file, bool is_exec,
 	if (file == NULL || info_ptr == NULL)
 		return -EINVAL;
 
-	type = check_exec_file_is_verity(file);
+	type = check_exec_file_is_verity(file, is_exec);
 	return get_elf_code_segment_info(file, is_exec, type, info_ptr);
 }
 
