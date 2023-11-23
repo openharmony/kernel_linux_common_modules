@@ -479,9 +479,6 @@ static long ctrl_qos_operation(int abi, void __user *uarg)
 		return ret;
 	}
 
-	/* transfer user space qos level to kernel space qos level */
-	qos_data.level -= QOS_LEVEL_INTERVAL;
-
 	return do_qos_manipulate(&qos_data);
 }
 
@@ -541,7 +538,7 @@ static inline bool valid_qos_item(struct qos_policy_datas *datas)
 	}
 
 	/* check user space qos polcicy data, level 0 reserved */
-	for (i = 0; i <= NR_QOS; ++i) {
+	for (i = 0; i < NR_QOS; ++i) {
 		data = &datas->policys[i];
 
 		if (!valid_nice(data->nice)) {
@@ -593,7 +590,7 @@ static long do_qos_policy_change(struct qos_policy_datas *datas)
 		item = &qos_policy_array[type].levels[i];
 
 		/* user space policy params */
-		data = &datas->policys[i + QOS_LEVEL_INTERVAL];
+		data = &datas->policys[i];
 
 		item->nice = data->nice;
 		item->latency_nice = data->latency_nice;

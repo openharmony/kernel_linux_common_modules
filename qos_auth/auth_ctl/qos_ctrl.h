@@ -13,11 +13,8 @@
 
 #include <linux/sched/qos_ctrl.h>
 
-/* qos level interval between user space and kernel space */
-#define QOS_LEVEL_INTERVAL 1
-
 /* min qos level used in kernel space, begin index for LOOP */
-#define QOS_POLICY_MIN_LEVEL (NO_QOS + QOS_LEVEL_INTERVAL)
+#define QOS_POLICY_MIN_LEVEL 0
 
 struct qos_policy_item {
 	int nice;
