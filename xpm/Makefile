@@ -6,22 +6,27 @@
 #
 
 obj-$(CONFIG_SECURITY_XPM) += \
+	core/xpm_common.o \
 	core/xpm_module.o \
-	core/xpm_misc.o \
-	core/xpm_hck.o \
+	core/xpm_misc_device.o \
+	core/xpm_hck_hooks.o \
+	core/xpm_security_hooks.o \
 	core/xpm_report.o \
-	core/dsmm_developer.o \
 	validator/elf_code_segment_info.o \
-	validator/exec_signature_info.o
+	validator/exec_signature_info.o \
+	developer/dsmm_developer.o
 
 obj-$(CONFIG_SECURITY_XPM_DEBUG) += \
 	core/xpm_debugfs.o
 
 ccflags-$(CONFIG_SECURITY_XPM) += \
-	-I$(srctree)/security/xpm/include \
+	-I$(srctree)/security/xpm/core \
+	-I$(srctree)/security/xpm/validator \
+	-I$(srctree)/security/xpm/developer \
 	-I$(srctree)/security/selinux/include \
 	-I$(srctree)/security/selinux \
 	-I$(srctree)/fs \
+	-I$(srctree)/fs/verity \
 	-I$(srctree)/fs/code_sign
 
 $(addprefix $(obj)/,$(obj-y)): $(obj)/flask.h

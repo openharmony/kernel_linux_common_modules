@@ -4,19 +4,17 @@
  */
 
 #include <linux/debugfs.h>
-#include "xpm_log.h"
-#include "xpm_hck.h"
-#include "xpm_debugfs.h"
 
-#define XPM_PERMISSIVE_MODE 0
-#define XPM_ENFORCE_MODE 1
+#include "xpm_debugfs.h"
+#include "xpm_hck_hooks.h"
+#include "xpm_log.h"
 
 static struct dentry *xpm_dir;
 static uint8_t xpm_mode = XPM_PERMISSIVE_MODE;
 
-bool xpm_is_permissve_mode(void)
+int xpm_ret(int ret)
 {
-	return xpm_mode == XPM_PERMISSIVE_MODE;
+	return xpm_mode == XPM_ENFORCE_MODE ? ret : 0;
 }
 
 int xpm_debugfs_init(void)
