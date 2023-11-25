@@ -13,6 +13,7 @@
 #include <linux/device-mapper.h>
 #include <linux/kdev_t.h>
 #include <linux/namei.h>
+#include <linux/sched.h>
 #include "mount.h"
 #include "internal.h"
 #include "exec_signature_info.h"
@@ -38,7 +39,7 @@ struct verity_info {
 
 static bool dm_verity_enable_check;
 
-#define DM_PARTITION_PATH_MAX	20
+#define DM_PARTITION_PATH_MAX	30
 #define DM_VERITY_INVALID_DEV	((dev_t)-1)
 
 struct dm_partition {
@@ -51,9 +52,10 @@ static struct dm_partition	dm_partition_table[] = {
 	{ .path = "/",           .len = 1,  .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/system/",    .len = 8,  .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/vendor/",    .len = 8,  .s_dev = DM_VERITY_INVALID_DEV },
-	{ .path = "/misc/",      .len = 6,  .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/sys_prod/",  .len = 10, .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/chip_prod/", .len = 11, .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/vendor/modem/modem_vendor/", .len = 27, .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/misc/",      .len = 6,  .s_dev = DM_VERITY_INVALID_DEV },
 };
 
 static struct path	root_path;
@@ -76,9 +78,8 @@ static dev_t get_file_dev(struct file *file)
 
 static dev_t get_partition_dev_form_mnt(const struct vfsmount *mnt)
 {
-	if (IS_ERR_OR_NULL(mnt) || IS_ERR_OR_NULL(mnt->mnt_sb)) {
+	if (IS_ERR_OR_NULL(mnt) || IS_ERR_OR_NULL(mnt->mnt_sb))
 		return DM_VERITY_INVALID_DEV;
-	}
 	return mnt->mnt_sb->s_dev;
 }
 
@@ -89,18 +90,16 @@ static dev_t get_root_partition_dev(struct path *root_path)
 	struct path *mount_path = &path;
 	dev_t s_dev;
 
-	if (root_path != NULL) {
+	if (root_path != NULL)
 		mount_path = root_path;
-	}
 	ret = kern_path("/", LOOKUP_DIRECTORY, mount_path);
 	if (ret) {
 		xpm_log_error("get / path failed.");
 		return DM_VERITY_INVALID_DEV;
 	}
 	s_dev = get_partition_dev_form_mnt(mount_path->mnt);
-	if (s_dev == DM_VERITY_INVALID_DEV || root_path == NULL) {
+	if (s_dev == DM_VERITY_INVALID_DEV || root_path == NULL)
 		path_put(mount_path);
-	}
 	xpm_log_info("get / dev=%u:%u success", s_dev, MINOR(s_dev));
 	return s_dev;
 }
@@ -167,18 +166,19 @@ static bool dm_verity_check_for_path(struct file *file)
 			return true;
 	}
 
-	if (!system_startup_stage) {
+	if (system_startup_stage)
+		return find_partition_dev(file, s_dev);
+
+	if (task_pid_nr(current) == 1) {
 		root_dev = get_root_partition_dev(NULL);
 		if (root_dev != dm_partition_table[0].s_dev) {
 			path_put(&root_path);
 			dm_partition_table[0].s_dev = get_root_partition_dev(&root_path);
-			for (i = 1; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++) {
+			for (i = 1; i < sizeof(dm_partition_table) / sizeof(struct dm_partition); i++)
 				dm_partition_table[i].s_dev = DM_VERITY_INVALID_DEV;
-			}
 			system_startup_stage = 1;
 		}
 	}
-
 	return find_partition_dev(file, s_dev);
 }
 
