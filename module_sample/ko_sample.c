@@ -1,8 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
+ * Copyright (c) 2023 Huawei Device Co., Ltd.
+ *
  * ko sample
  *
+ * Author: z-jax <zhujiaxin@huawei.com>
+ *
+ * Data: 2023-11-25
  */
+
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -19,5 +25,5 @@ static void kosample_exit(void)
 
 module_init(kosample_init);
 module_exit(kosample_exit);
-MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("zhujiaxin <zhujiaxin@huawei.com>");
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("z-jax <zhujiaxin@huawei.com>");

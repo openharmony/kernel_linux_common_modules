@@ -1,7 +1,12 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
+ * Copyright (c) 2023 Huawei Device Co., Ltd.
+ *
  * ko sample
  *
+ * Author: z-jax <zhujiaxin@huawei.com>
+ *
+ * Data: 2023-11-25
  */
 
 #include <linux/init.h>
