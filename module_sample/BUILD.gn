@@ -15,8 +15,8 @@ import("//build/templates/kernel/ohos_kernel_build.gni")
 
 ohos_build_ko("ko_sample") {
   sources = [
-    "//kernel/linux/common_modules/module_sample/ko_sample.c",
-    "//kernel/linux/common_modules/module_sample/sample_fun.c",
+    "ko_sample.c",
+    "sample_fun.c",
   ]
   target_ko_name = "kosample"
   device_name = device_name

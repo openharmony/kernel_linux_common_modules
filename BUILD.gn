@@ -12,5 +12,5 @@
 # limitations under the License.
 
 group("ko_build") {
-  deps = [ "//kernel/linux/common_modules/module_sample:ko_sample" ]
+  deps = [ "module_sample:ko_sample" ]
 }
