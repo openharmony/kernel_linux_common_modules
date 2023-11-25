@@ -64,7 +64,7 @@ Note:If the text contains special characters, please escape them according to th
 				<policyitem type="compatibility" name="GPL" path="ucollection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="code_sign/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="container_escape_detection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
-				<policyitem type="compatibility" name="GPL" path="module_sample/*.c" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="compatibility" name="GPL" path="module_sample/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="xpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="memory_security/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
@@ -72,7 +72,7 @@ Note:If the text contains special characters, please escape them according to th
 				<policyitem type="license" name="GPL" path="ucollection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="code_sign/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="container_escape_detection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
-				<policyitem type="license" name="GPL" path="module_sample/*.c" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="license" name="GPL" path="module_sample/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 			</policy>
 		</policylist>
 		<filefilterlist>
@@ -80,6 +80,8 @@ Note:If the text contains special characters, please escape them according to th
 				<filteritem type="filepath" name="LICENSES-GPL-2.0" desc="license file"/>
 				<filteritem type="filepath" name="LICENSES-Linux-syscall-note" desc="license file"/>
 				<filteritem type="filepath" name="newip/third_party/.*" desc="third party code path"/>
+				<filteritem type="filepath" name="BUILD.gn" desc="build file"/>
+				<filteritem type="filepath" name="module_sample/BUILD.gn" desc="build file"/>
 			</filefilter>
 			<filefilter name="defaultPolicyFilter" desc="Files that do not need to be applied specified policy, will be merged with the filter items which has the same filefilter name">
 				<filteritem type="filepath" name="LICENSE" desc="license file"/>
