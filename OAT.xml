@@ -81,7 +81,6 @@ Note:If the text contains special characters, please escape them according to th
 				<filteritem type="filepath" name="LICENSES-Linux-syscall-note" desc="license file"/>
 				<filteritem type="filepath" name="newip/third_party/.*" desc="third party code path"/>
 				<filteritem type="filepath" name="BUILD.gn" desc="build file"/>
-				<filteritem type="filepath" name="module_sample/BUILD.gn" desc="build file"/>
 			</filefilter>
 			<filefilter name="defaultPolicyFilter" desc="Files that do not need to be applied specified policy, will be merged with the filter items which has the same filefilter name">
 				<filteritem type="filepath" name="LICENSE" desc="license file"/>
