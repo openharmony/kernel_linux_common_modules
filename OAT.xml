@@ -56,7 +56,7 @@ Note:If the text contains special characters, please escape them according to th
 <configuration>
 	<oatconfig>
 		<policylist>
-			<policy name="newipPolicy" desc="New IP protocol stack">
+			<policy name="projectPolicy" desc="">
 				<policyitem type="compatibility" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="xpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="memory_security/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
@@ -64,6 +64,7 @@ Note:If the text contains special characters, please escape them according to th
 				<policyitem type="compatibility" name="GPL" path="ucollection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="code_sign/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="container_escape_detection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="compatibility" name="GPL" path="module_sample/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="xpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="memory_security/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
@@ -71,6 +72,7 @@ Note:If the text contains special characters, please escape them according to th
 				<policyitem type="license" name="GPL" path="ucollection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="code_sign/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="container_escape_detection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="license" name="GPL" path="module_sample/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 			</policy>
 		</policylist>
 		<filefilterlist>
