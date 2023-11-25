@@ -6,4 +6,5 @@ ohos_build_ko("ko_sample") {
   target_ko_name = "kosample"
   device_name = device_name
   device_arch = "arm64"
+  version = "1.0"
 }
