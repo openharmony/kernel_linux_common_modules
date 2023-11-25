@@ -15,12 +15,12 @@
 
 static int kosample_init(void)
 {
-	pr_info("ko sample: %s\n", __func__);
+	pr_err("ko sample: %s\n", __func__);
 	return 0;
 }
 static void kosample_exit(void)
 {
-	pr_info("ko sample: %s\n", __func__);
+	pr_err("ko sample: %s\n", __func__);
 }
 
 module_init(kosample_init);
