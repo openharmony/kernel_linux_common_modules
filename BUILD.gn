@@ -1,0 +1,5 @@
+group("ko_build") {
+  deps = [
+    "//kernel/linux/common_modules/module_sample:ko_sample",
+  ]
+}

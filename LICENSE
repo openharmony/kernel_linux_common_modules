@@ -6,5 +6,6 @@
     ./memory_security/
     ./code_sign
     ./container_escape_detection
+    ./module_sample
 
 As for the specific use of the licenses,  please refer to the relevant description in the documents.
