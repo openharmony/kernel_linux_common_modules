@@ -1,13 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- *
- * ko build sample
- *
- * Author: z-jax <zhujiaxin@huawei.com>
- *
- * Data: 2023-11-25
- */
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+#
+# ko build sample
+#
+# Author: z-jax <zhujiaxin@huawei.com>
+#
+# Data: 2023-11-25
+#
 
 import("//build/templates/kernel/ohos_kernel_build.gni")
 
