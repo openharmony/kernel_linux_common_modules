@@ -10,6 +10,8 @@
 // kernel struct, modify at the same time
 struct ucollection_process_cpu_item {
 	int pid;
+	unsigned long long min_flt;
+	unsigned long long maj_flt;
 	unsigned long long cpu_usage_utime;
 	unsigned long long cpu_usage_stime;
 	unsigned long long cpu_load_time;
