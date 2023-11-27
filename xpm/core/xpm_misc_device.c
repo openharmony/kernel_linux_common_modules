@@ -110,6 +110,14 @@ static long xpm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long xpm_compat_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return 0;
+}
+#endif
+
 static int xpm_open(struct inode *inode, struct file *file)
 {
 	return 0;
@@ -126,7 +134,7 @@ static const struct file_operations xpm_fops = {
 	.release        = xpm_release,
 	.unlocked_ioctl = xpm_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl   = xpm_ioctl,
+	.compat_ioctl   = xpm_compat_ioctl,
 #endif
 };
 
