@@ -20,7 +20,12 @@ kernel/linux/
                ├ ─ ─  OAT.xml                     # OAT扫描配置文件，合入模块同步更新
                ├ ─ ─  README.md                   # linux内核通用模块仓介绍文档
                ├ ─ ─  README_en.md
-               └ ─ ─  README.OpenSource           # 模块资源配置文件
+               ├ ─ ─  README.OpenSource           # 模块资源配置文件
+               ├ ─ ─  BUILD.gn                    # 内核ko模块参与构建的编译配置文件
+               └ ─ ─  module_smple                # 内核ko示例
+                       ├ ─ ─  BUILD.gn            # 内核ko模块编译配置文件
+                       └ ─ ─  *.c                 # ko源码文件（支持子目录以及多源码文件）
+
 ```
 
 #### 贡献流程
@@ -73,3 +78,49 @@ kernel/linux/
 8. 【规则】合入模块如有借鉴或引用三方开源模块的需要在README.OpenSource文件中进行添加说明。
 9. 【建议】具备编译ko的条件，在ko构建能力上线后可适配整改构建出ko模块。
 
+### ko模块指导
+
+1. BUILD.gn文件
+(1) 参与构建
+参与编译ko模块在common_modules下的BUILD.gn中deps字段中进行添加，格式为“模块目录:模块名”，例如：
+```
+group("ko_build") {
+  deps = [ 
+    "module_sample:ko_sample", # 示例ko
+    "my_sample:new_ko",        # 新建ko
+  ]
+}
+```
+
+(2) 模块编译配置文件，示例如下
+```
+import("//build/templates/kernel/ohos_kernel_build.gni")  # 包含编译ko所需的模板配置
+
+ohos_build_ko("ko_sample") {      # 内核ko模块编译名，用于参与构建依赖，必须配置
+  sources = [                     # 涉及源码文件填写，必须配置
+    "ko_sample.c",
+    "sample_fun.c",
+  ]
+  target_ko_name = "kosample"     # 内核ko最终模块名，不用带扩展名“.ko”，必须配置
+  device_name = device_name       # 参与的设备名，如rk3568，默认使用编译参数device_name配置即可
+  device_arch = "arm64"           # 适用架构配置，必须配置
+}
+```
+
+2. 编译
+新增编译目标mk_chip_ckm_img，所有填入BUILD.gn的ko模块将会被编译生成。以rk3568为例：
+```
+./build.sh --product-name rk3568 --build-target mk_chip_ckm_img  --ccache --jobs 4
+```
+
+3. 产物
+所有构建后ko生成在新增的chip_ckm目录下，以rk3568为例：
+```
+out/rk3568/packages/phone/chip_ckm/
+                           └ ─ ─  *.ko
+```
+ko全部打包到独立镜像chip_ckm.img镜像中，镜像位置以rk3568为例：
+```
+out/rk3568/packages/phone/images/
+                           └ ─ ─  chip_ckm.img
+```
