@@ -81,7 +81,9 @@ kernel/linux/
 ### ko模块指导
 
 1. BUILD.gn文件
+
 (1) 参与构建
+
 参与编译ko模块在common_modules下的BUILD.gn中deps字段中进行添加，格式为“模块目录:模块名”，例如：
 ```
 group("ko_build") {
@@ -108,12 +110,14 @@ ohos_build_ko("ko_sample") {      # 内核ko模块编译名，用于参与构建
 ```
 
 2. 编译
+
 新增编译目标mk_chip_ckm_img，所有填入BUILD.gn的ko模块将会被编译生成。以rk3568为例：
 ```
 ./build.sh --product-name rk3568 --build-target mk_chip_ckm_img  --ccache --jobs 4
 ```
 
 3. 产物
+
 所有构建后ko生成在新增的chip_ckm目录下，以rk3568为例：
 ```
 out/rk3568/packages/phone/chip_ckm/
