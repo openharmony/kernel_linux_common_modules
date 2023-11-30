@@ -94,6 +94,7 @@ group("ko_build") {
 }
 ```
 
+
 (2) 模块编译配置文件，示例如下
 ```
 import("//build/templates/kernel/ohos_kernel_build.gni")  # 包含编译ko所需的模板配置
@@ -109,12 +110,14 @@ ohos_build_ko("ko_sample") {      # 内核ko模块编译名，用于参与构建
 }
 ```
 
+
 2. 编译
 
 新增编译目标mk_chip_ckm_img，所有填入BUILD.gn的ko模块将会被编译生成。以rk3568为例：
 ```
 ./build.sh --product-name rk3568 --build-target mk_chip_ckm_img  --ccache --jobs 4
 ```
+
 
 3. 产物
 
