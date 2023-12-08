@@ -2,6 +2,7 @@
 # Copyright (c) 2023 Huawei Device Co., Ltd.
 #
 obj-$(CONFIG_SECURITY_CONTAINER_ESCAPE_DETECTION) += core/ced_detection.o
+obj-$(CONFIG_SECURITY_CONTAINER_ESCAPE_DETECTION) += core/ced_permission.o
 obj-$(CONFIG_SECURITY_CONTAINER_ESCAPE_DETECTION) += core/ced_module.o
 
 ccflags-$(CONFIG_SECURITY_CONTAINER_ESCAPE_DETECTION) := \
