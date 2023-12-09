@@ -4,10 +4,26 @@
 #
 # Makefile for memory_security manager module
 #
-obj-$(CONFIG_HIDE_MEM_ADDRESS) += hideaddr.o
+obj-$(CONFIG_HIDE_MEM_ADDRESS) += \
+	src/hideaddr.o \
+	module.o
+
+obj-$(CONFIG_JIT_MEM_CONTROL) += \
+	src/jit_space_list.o \
+	src/jit_process.o \
+	src/jit_memory.o \
+	src/jit_memory_module.o \
+	module.o
 
 ccflags-$(CONFIG_HIDE_MEM_ADDRESS) += \
 	-I$(srctree)/fs/proc \
+	-I$(srctree)/fs/proc/memory_security/include \
+	-I$(srctree)/security/selinux/include \
+	-I$(srctree)/security/selinux
+
+ccflags-$(CONFIG_JIT_MEM_CONTROL) += \
+	-I$(srctree)/fs/proc \
+	-I$(srctree)/fs/proc/memory_security/include \
 	-I$(srctree)/security/selinux/include \
 	-I$(srctree)/security/selinux
 

@@ -16,6 +16,7 @@
 
 #include "avc.h"
 #include "objsec.h"
+#include "hideaddr.h"
 
 static bool is_anon_exec(struct vm_area_struct *vma)
 {
@@ -64,20 +65,7 @@ static void hideaddr_header_prefix(unsigned long *start, unsigned long *end,
 	*flags = 0;
 }
 
-static void hideaddr_header_prefix_lhck_register(void)
+void hideaddr_header_prefix_lhck_register(void)
 {
 	REGISTER_HCK_LITE_HOOK(hideaddr_header_prefix_lhck, hideaddr_header_prefix);
 }
-
-static int __init hideaddr_hooks_init(void)
-{
-	hideaddr_header_prefix_lhck_register();
-	return 0;
-}
-
-static void __exit hideaddr_hooks_exit(void)
-{
-}
-
-module_init(hideaddr_hooks_init);
-module_exit(hideaddr_hooks_exit);
