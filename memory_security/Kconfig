@@ -6,11 +6,25 @@
 
 menu "Hide memory address manager"
 
+config MEMORY_SECURITY
+	default n
+	bool "Enable memory protection for render process"
+	help
+	  Enable this to enable following two options.
+
 config HIDE_MEM_ADDRESS
 	default n
 	bool "Hide excutable memory address in proc/[pid]/maps "
- 	help
+	depends on MEMORY_SECURITY
+	help
 	  Select show address about anonymous area of the process memory
 	  with -rx- permissions or not.
+
+config JIT_MEM_CONTROL
+	default n
+	bool "Enable memory protection for Just-In-Time compiler's codespace"
+	depends on MEMORY_SECURITY
+	help
+	  Restrict mmap and mprotect interface for process which use JIT compiler.
 endmenu
 # a blank line must be existed
