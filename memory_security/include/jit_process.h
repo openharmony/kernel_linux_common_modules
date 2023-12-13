@@ -15,6 +15,6 @@ struct result_of_find_process {
 
 
 struct result_of_find_process find_process_jit_space(struct rb_root *root, int pid);
-struct list_head *update_process_jit_space(struct rb_root *root, int pid, unsigned long cookie, int *err);
+struct list_head *update_process_jit_space(struct rb_root *root, int pid, unsigned long cookie, unsigned long *err);
 struct jit_process *delete_process_jit_space(struct rb_root *root, int pid);
 #endif // _JIT_PROCESS_H
