@@ -39,7 +39,7 @@ struct result_of_find_process find_process_jit_space(struct rb_root *root, int p
 }
 
 struct list_head *update_process_jit_space(struct rb_root *root,
-	int pid, unsigned long cookie, int *err)
+	int pid, unsigned long cookie, unsigned long *err)
 {
 	struct result_of_find_process result = find_process_jit_space(root, pid);
 
