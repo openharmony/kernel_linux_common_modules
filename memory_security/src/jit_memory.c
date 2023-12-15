@@ -44,10 +44,11 @@ void find_jit_memory(struct task_struct *task, unsigned long start, unsigned lon
 }
 
 void check_jit_memory(struct task_struct *task, unsigned long cookie, unsigned long prot,
-	unsigned long start, unsigned long size, int *err)
+	unsigned long flag, unsigned long size, unsigned long *err)
 {
-	if (!jit_avc_has_perm(SECCLASS_JIT_MEMORY, JIT_MEMORY__EXEC_MEM_CTRL, task))
+	if (!jit_avc_has_perm(SECCLASS_JIT_MEMORY, JIT_MEMORY__EXEC_MEM_CTRL, task) || !(flag & MAP_ANONYMOUS))
 		return;
+	unsigned long start = *err;
 
 	if (prot & PROT_EXEC) {
 		jit_memory_log_info("JITINFO can not apply prot_exec");
@@ -55,8 +56,11 @@ void check_jit_memory(struct task_struct *task, unsigned long cookie, unsigned l
 		vm_munmap(start, size);
 		return;
 	}
+	if (!(flag & MAP_JIT))
+		return;
+
 	struct list_head *head = update_process_jit_space(&root_tree, task->pid, cookie, err);
-	if (*err) {
+	if (IS_ERR_VALUE(*err)) {
 		vm_munmap(start, size);
 		return;
 	}

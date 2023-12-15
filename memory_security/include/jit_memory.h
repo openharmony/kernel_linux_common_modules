@@ -12,7 +12,7 @@
 
 extern void find_jit_memory(struct task_struct *task, unsigned long start, unsigned long size, int *err);
 extern void check_jit_memory(struct task_struct *task, unsigned long cookie, unsigned long prot,
-	unsigned long start, unsigned long size, int *err);
+	unsigned long flag, unsigned long size, unsigned long *err);
 extern void delete_jit_memory(struct task_struct *task, unsigned long start, unsigned long size, int *err);
 extern void exit_jit_memory(struct task_struct *task);
 
