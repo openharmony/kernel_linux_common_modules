@@ -238,7 +238,6 @@ int elf_file_enable_fs_verity(struct file *file)
 
 	/* check magic string */
 	if (strncmp(tmp_sign_head->magic, SIGN_MAGIC_STR, sizeof(SIGN_MAGIC_STR) - 1) != 0) {
-		code_sign_log_error("enable fsverity on file %s failed: magic string not found", real_path);
 		err = -EINVAL;
 		goto release_sign_head_out;
 	}

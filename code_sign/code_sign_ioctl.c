@@ -5,6 +5,7 @@
 
 #include <linux/fs.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/compat.h>
 #include "avc.h"
@@ -13,10 +14,11 @@
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
 
+DEFINE_SPINLOCK(cert_chain_tree_lock);
 struct rb_root cert_chain_tree = RB_ROOT;
 struct rb_root dev_cert_chain_tree = RB_ROOT;
 
-struct cert_source *cert_chain_search(struct rb_root *root, const char *subject, const char *issuer)
+struct cert_source *matched_cert_search(struct rb_root *root, const char *subject, const char *issuer)
 {
 	struct rb_node **cur_node = &(root->rb_node);
 
@@ -44,12 +46,24 @@ struct cert_source *cert_chain_search(struct rb_root *root, const char *subject,
 	return NULL;
 }
 
+struct cert_source *cert_chain_search(struct rb_root *root, const char *subject, const char *issuer, bool has_locked)
+{
+	if (has_locked)
+		return matched_cert_search(root, subject, issuer);
+	else {
+		spin_lock(&cert_chain_tree_lock);
+		struct cert_source *matched_cert = matched_cert_search(root, subject, issuer);
+		spin_unlock(&cert_chain_tree_lock);
+		return matched_cert;
+	}
+}
+
 struct cert_source *find_match(const char *subject, const char *issuer, bool is_dev)
 {
 	if (is_dev)
-		return cert_chain_search(&dev_cert_chain_tree, subject, issuer);
+		return cert_chain_search(&dev_cert_chain_tree, subject, issuer, false);
 	else
-		return cert_chain_search(&cert_chain_tree, subject, issuer);
+		return cert_chain_search(&cert_chain_tree, subject, issuer, false);
 }
 
 int code_sign_check_caller(char *caller)
@@ -78,6 +92,7 @@ int cert_chain_insert(struct rb_root *root, struct cert_source *cert)
 		return -EKEYREJECTED;
 	}
 
+	spin_lock(&cert_chain_tree_lock);
 	struct rb_node **new = &(root->rb_node), *parent = NULL;
 
 	while (*new) {
@@ -98,7 +113,7 @@ int cert_chain_insert(struct rb_root *root, struct cert_source *cert)
 			} else {
 				this->cnt++;
 				code_sign_log_info("cert already exist in trust sources");
-				return 0;
+				goto out;
 			}
 		}
 	}
@@ -110,29 +125,38 @@ int cert_chain_insert(struct rb_root *root, struct cert_source *cert)
 
 	code_sign_log_info("add trusted cert: subject = '%s', issuer = '%s', max_path_depth = %d",
 		cert->subject, cert->issuer, cert->max_path_depth);
+out:
+	spin_unlock(&cert_chain_tree_lock);
 	return 0;
 }
 
 int cert_chain_remove(struct rb_root *root, struct cert_source *cert)
 {
-	struct cert_source *matched_cert = cert_chain_search(root, cert->subject, cert->issuer);
+	spin_lock(&cert_chain_tree_lock);
+	struct cert_source *matched_cert = cert_chain_search(root, cert->subject, cert->issuer, true);
 
-	if (!matched_cert)
-		return -EINVAL;
+	int ret = 0;
+	if (!matched_cert) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (matched_cert->path_type == RELEASE_DEVELOPER_CODE
 		|| matched_cert->path_type == DEBUG_DEVELOPER_CODE) {
 		--matched_cert->cnt;
 		if (matched_cert->cnt > 0)
-			return 0;
+			goto out;
 		rb_erase(&matched_cert->node, root);
 		code_sign_log_info("remove trusted cert: subject = '%s', issuer = '%s', max_path_depth = %d",
 			cert->subject, cert->issuer, cert->max_path_depth);
-		return 0;
+		goto out;
 	}
 
 	code_sign_log_error("can not remove cert type %x", cert->path_type);
-	return -EKEYREJECTED;
+	ret = -EKEYREJECTED;
+out:
+	spin_unlock(&cert_chain_tree_lock);
+	return ret;
 }
 
 int code_sign_open(struct inode *inode, struct file *filp)
