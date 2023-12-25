@@ -74,22 +74,28 @@ int code_sign_check_caller(char *caller)
 
 	rc = security_sid_to_context(&selinux_state, sid, &context, &context_len);
 	if (rc)
-		return rc;
+		return -EINVAL;
 
 	code_sign_log_debug("sid=%d, context=%s", sid, context);
-	if (strncmp(caller, context, strlen(caller)))
+	if (!strncmp(caller, context, strlen(caller)))
 		return 0;
-	else
-		return -EKEYREJECTED;
+
+	return -EPERM;
 }
 
 int cert_chain_insert(struct rb_root *root, struct cert_source *cert)
 {
-	// procs except key_enable are only allowed to insert developer_code
-	if (!code_sign_check_caller(KEY_ENABLE_CTX) && !(cert->path_type == RELEASE_DEVELOPER_CODE
-		|| cert->path_type == DEBUG_DEVELOPER_CODE)) {
-		code_sign_log_error("no permission to insert code %d", cert->path_type);
-		return -EKEYREJECTED;
+	int ret = code_sign_check_caller(KEY_ENABLE_CTX);
+	if (ret == -EINVAL) {
+		code_sign_log_error("load SELinux context failed");
+		return -EINVAL;
+	} else if (ret == -EPERM) {
+		// procs except key_enable are only allowed to insert developer_code
+		if (!(cert->path_type == RELEASE_DEVELOPER_CODE
+			|| cert->path_type == DEBUG_DEVELOPER_CODE)) {
+			code_sign_log_error("no permission to insert code %d", cert->path_type);
+			return -EPERM;
+		}
 	}
 
 	spin_lock(&cert_chain_tree_lock);

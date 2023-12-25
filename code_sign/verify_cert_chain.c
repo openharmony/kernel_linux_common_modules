@@ -66,6 +66,9 @@ static int pkcs7_find_key(struct pkcs7_message *pkcs7,
 static void set_file_ownerid(struct cs_info *cs_info, int path_type,
 	struct pkcs7_signed_info *sinfo)
 {
+	if (cs_info == NULL)
+		return;
+
 	/* Mark a debug file as OWNERID_DEBUG */
 	if((path_type > DEBUG_CODE_START) && (path_type < DEBUG_CODE_END)) {
 		code_sign_set_ownerid(cs_info, FILE_OWNERID_DEBUG, NULL, 0);

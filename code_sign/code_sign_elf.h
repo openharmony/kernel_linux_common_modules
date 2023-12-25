@@ -7,6 +7,7 @@
 #define _CODE_SIGN_ELF_H
 
 #include <linux/fs.h>
+#include <linux/code_sign.h>
 
 #define PAGE_SIZE_4K 12
 
@@ -36,7 +37,7 @@
  * |       |hash alg          (1 byte )|             |
  * |       |log2blocksize     (1 byte )|             |
  * |       |salt size         (1 byte )|             |
- * |       |signature size    (4 bytes)|  fs verity  |
+ * |       |signature size    (4 bytes)|  code sign  |
  * |       |data size         (8 bytes)|  block      |
  * |       |root hash        (64 bytes)|             |
  * |       |salt             (32 bytes)|             |
@@ -85,31 +86,12 @@ typedef struct
 	__u32 length;
 } tl_header_t;
 
-
 typedef struct
 {
 	__u32 type;
 	__u32 length;
 	__u32 offset;
 } block_hdr_t;
-
-typedef struct
-{
-	__u8 version;
-	__u8 hash_algorithm;
-	__u8 log2_block_size;
-	__u8 salt_size;
-	__u32 signature_size;
-	__u64 data_size;
-	__u8 root_hash[64];
-	__u8 salt[32];
-	__u32 flags;
-	__u32 reserved;
-	__u64 tree_offset;
-	__u8 reserved_buf[127];
-	__u8 cs_version;
-	char signature[];
-} fs_verity_desc_t;
 
 #pragma pack(pop)
 
@@ -129,7 +111,7 @@ typedef struct
 	tl_header_t merkle_tree_hdr;
 	merkle_tree_t *merkle_tree;
 	tl_header_t fsverity_desc_hdr;
-	fs_verity_desc_t *fsverity_desc;
+	struct code_sign_descriptor *fsverity_desc;
 
 	/* sign head */
 	sign_head_t sign_head;

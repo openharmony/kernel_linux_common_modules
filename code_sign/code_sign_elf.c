@@ -10,6 +10,7 @@
 #include "dsmm_developer.h"
 #include "code_sign_elf.h"
 #include "code_sign_log.h"
+#include "verify_cert_chain.h"
 
 #define SIGN_HEAD_SIZE (sizeof(sign_head_t))
 
@@ -94,9 +95,25 @@ static int get_fsverity_desc(sign_block_t *sign_block, char *sign_data_ptr)
 		return -EINVAL;
 	}
 
-	sign_block->fsverity_desc = (fs_verity_desc_t *) (sign_data_ptr + sign_block->code_signing_block_hdr.offset
+	sign_block->fsverity_desc = (struct code_sign_descriptor *) (sign_data_ptr + sign_block->code_signing_block_hdr.offset
 														+ sizeof(tl_header_t) + sign_block->merkle_tree_hdr.length
 														+ sizeof(tl_header_t));
+	return 0;
+}
+
+static int validate_elf_source(const struct code_sign_descriptor *desc)
+{
+	const u32 sig_size = le32_to_cpu(desc->sig_size);
+	int ret = 0;
+
+	code_sign_verify_certchain(desc->signature, sig_size, NULL, &ret);
+	if (ret < 0)
+		return ret;
+
+	if (ret <= DEBUG_CODE_START || ret >= DEBUG_CODE_END || ret == DEBUG_DEVELOPER_CODE) {
+		code_sign_log_error("invalid elf source, type: %d", ret);
+		return -EKEYREJECTED;
+	}
 	return 0;
 }
 
@@ -153,6 +170,11 @@ static int enable_by_sign_head(struct file *fp, struct inode *inode, long long f
 	err = deny_write_access(fp);
 	if (err) /* -ETXTBSY */
 		goto out_drop_write;
+
+	/* validate cert chain of elf signer */
+	err = validate_elf_source(sign_block.fsverity_desc);
+	if (err)
+		goto out;
 
 	/* fsverity_enable_with_descriptor in fs/verity/enable.c */
 	err = fsverity_enable_with_descriptor(fp, (void *)(sign_block.fsverity_desc), sign_block.fsverity_desc_hdr.length);
