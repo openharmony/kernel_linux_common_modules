@@ -1,5 +1,6 @@
 (1) The directories below are licensed under GPL-2.0-or-later.
     ./newip/
+    ./tzdriver/
     ./xpm/
     ./qos_auth/
     ./ucollection/
