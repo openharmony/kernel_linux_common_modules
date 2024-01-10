@@ -1578,6 +1578,7 @@ out:
 
 do_fault:
 	if (!skb->len) {
+		tcp_nip_modify_send_head(sk, skb);
 		tcp_unlink_write_queue(skb, sk);
 		sk_wmem_free_skb(sk, skb);
 	}

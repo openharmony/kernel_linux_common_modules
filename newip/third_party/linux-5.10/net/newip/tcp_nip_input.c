@@ -817,6 +817,7 @@ static int tcp_nip_clean_rtx_queue(struct sock *sk, ktime_t *skb_snd_tstamp)
 		if (*skb_snd_tstamp == 0)
 			*skb_snd_tstamp = skb->tstamp;
 
+		tcp_nip_modify_send_head(sk, skb);
 		tcp_unlink_write_queue(skb, sk);
 		sk_wmem_free_skb(sk, skb);
 	}
