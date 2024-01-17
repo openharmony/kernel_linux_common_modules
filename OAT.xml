@@ -66,6 +66,7 @@ Note:If the text contains special characters, please escape them according to th
 				<policyitem type="compatibility" name="GPL" path="container_escape_detection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="tzdriver/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="compatibility" name="GPL" path="module_sample/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="compatibility" name="GPL" path="pac/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="newip/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="xpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="memory_security/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
@@ -75,6 +76,7 @@ Note:If the text contains special characters, please escape them according to th
 				<policyitem type="license" name="GPL" path="container_escape_detection/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="module_sample/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="license" name="GPL" path="tzdriver/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
+				<policyitem type="license" name="GPL" path="pac/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter"/>
 				<policyitem type="copyright" name="Huawei Technologies Co." path="tzdriver/.*" rule="may" group="defaultGroup" filefilter="copyrightPolicyFilter" desc="Copyright information"/>
 			</policy>
 		</policylist>
@@ -97,6 +99,7 @@ Note:If the text contains special characters, please escape them according to th
 				<filteritem type="filepath" name="qos_auth/figures/.*"/>
 				<filteritem type="filepath" name="ucollection/figures/.*"/>
 				<filteritem type="filepath" name="tzdriver/figures/.*"/>
+				<filteritem type="filepath" name="pac/figures/.*"/>
 			</filefilter>
 		</filefilterlist>
 	</oatconfig>
