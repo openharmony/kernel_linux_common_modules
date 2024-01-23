@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
  */
 #include <linux/string.h>
 #include <linux/elf.h>
@@ -32,7 +32,7 @@ static int read_elf_info(struct file *file, void *buffer, size_t read_size, loff
 {
 	size_t len;
 
-	len = kernel_read(file, buffer, read_size, &pos);
+	len = (size_t)kernel_read(file, buffer, read_size, &pos);
 	if (unlikely(len != read_size))
 		return -EIO;
 
@@ -267,7 +267,7 @@ static int find_elf_code_segment_info(const char *phdr_info, struct elf_info *el
 	if (segment_count == 0)
 		return -ENOEXEC;
 
-	size = sizeof(struct exec_file_signature_info) + segment_count * sizeof(struct exec_segment_info);
+	size = sizeof(struct exec_file_signature_info) + (size_t)segment_count * sizeof(struct exec_segment_info);
 	exec_file_info = kzalloc(size, GFP_KERNEL);
 	if (exec_file_info == NULL)
 		return -ENOMEM;
