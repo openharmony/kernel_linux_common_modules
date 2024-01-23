@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
  */
 #include <linux/string.h>
 #include <linux/fcntl.h>
@@ -338,7 +338,7 @@ static void rb_erase_node(struct rb_root *root, int *node_count,
 	(*node_count)--;
 }
 
-static int find_idle_nodes(struct rb_root *root, uintptr_t *ilde_nodes, size_t count)
+static int find_idle_nodes(struct rb_root *root, uintptr_t *ilde_nodes, int count)
 {
 	int i = 0;
 	struct exec_file_signature_info *code_segment;
@@ -476,7 +476,7 @@ static int get_verity_info(int type, struct verity_info *verity)
 static void insert_new_signature_info(struct inode *file_node, int type,
 	struct verity_info *verity, struct exec_file_signature_info *new_info, struct exec_file_signature_info **old_info)
 {
-	new_info->type = type;
+	new_info->type = (unsigned int)type;
 	new_info->inode = (uintptr_t)file_node;
 	RB_CLEAR_NODE(&new_info->rb_node);
 	if ((*old_info) != NULL) {
