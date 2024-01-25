@@ -39,6 +39,7 @@ enum qos_ctrl_cmdid {
 enum qos_manipulate_type {
 	QOS_APPLY = 1,
 	QOS_LEAVE,
+	QOS_GET,
 	QOS_OPERATION_CMD_MAX_NR,
 };
 
@@ -76,6 +77,8 @@ struct qos_ctrl_data {
 	 * minus 1 before use in kernel, so the kernel range is [0, NR_QOS)
 	 */
 	unsigned int level;
+
+	int qos;
 };
 
 struct qos_policy_data {
@@ -111,6 +114,7 @@ struct auth_struct;
 
 int qos_apply(struct qos_ctrl_data *data);
 int qos_leave(struct qos_ctrl_data *data);
+int qos_get(struct qos_ctrl_data *data);
 
 void qos_switch(struct auth_struct *auth, int target_status);
 
