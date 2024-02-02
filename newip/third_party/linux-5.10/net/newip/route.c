@@ -415,7 +415,7 @@ struct nip_rt_info *nip_pol_route(struct net *net, struct nip_fib_table *table,
 		rcu_read_unlock_bh();
 		nip_dbg("search fail");
 		rt = net->newip.nip_null_entry;
-		dst_hold_and_use(&rt->dst, jiffies);
+		dst_hold(&rt->dst);
 		return rt;
 	}
 	rt = fn->nip_route_info;
