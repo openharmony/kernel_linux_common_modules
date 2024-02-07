@@ -51,7 +51,7 @@ void check_jit_memory(struct task_struct *task, unsigned long cookie, unsigned l
 	unsigned long start = *err;
 
 	if (prot & PROT_EXEC) {
-		jit_memory_log_info("JITINFO can not apply prot_exec");
+		jit_memory_log_info("can not apply prot_exec");
 		*err = -EACCES;
 		vm_munmap(start, size);
 		return;
@@ -75,7 +75,6 @@ void delete_jit_memory(struct task_struct *task, unsigned long start, unsigned l
 {
 	if (!jit_avc_has_perm(SECCLASS_JIT_MEMORY, JIT_MEMORY__EXEC_MEM_CTRL, task))
 		return;
-	jit_memory_log_info("JITINFO delete jit memory");
 
 	struct list_head *head = (find_process_jit_space(&root_tree, task->pid).head);
 	if (head != NULL) {
