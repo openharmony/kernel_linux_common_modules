@@ -13,10 +13,10 @@
 #define JIT_MEMORY_ERROR_TAG "E"
 
 #define jit_memory_log_info(fmt, args...) \
-	pr_info("[%s/%s]%s: " fmt "\n", JIT_MEMORY_INFO_TAG, JIT_MEMORY_TAG, \
+	pr_info("[%s/%s]%s: JITINFO " fmt "\n", JIT_MEMORY_INFO_TAG, JIT_MEMORY_TAG, \
 	__func__, ##args)
 
 #define jit_memory_log_error(fmt, args...) \
-	pr_err("[%s/%s]%s: " fmt "\n", JIT_MEMORY_ERROR_TAG, JIT_MEMORY_TAG, \
+	pr_err("[%s/%s]%s: JITERROR " fmt "\n", JIT_MEMORY_ERROR_TAG, JIT_MEMORY_TAG, \
 	__func__, ##args)
 #endif /* _JIT_MEMORY_LOG_H */
