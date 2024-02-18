@@ -376,6 +376,35 @@ out:
 	return ret;
 }
 
+int qos_get(struct qos_ctrl_data *data)
+{
+	struct task_struct *p;
+	struct qos_task_struct *qts;
+	int pid = data->pid;
+	int ret = 0;
+
+	p = find_get_task_by_vpid((pid_t)pid);
+	if (unlikely(!p)) {
+		pr_err("[QOS_CTRL] no matching task for this pid, qos get failed\n");
+		ret = -ESRCH;
+		goto out;
+	}
+
+	if (unlikely(p->flags & PF_EXITING)) {
+		pr_info("[QOS_CTRL] dying task, no need to set qos\n");
+		ret = -THREAD_EXITING;
+		goto out_put_task;
+	}
+
+	qts = (struct qos_task_struct *) &p->qts;
+	data->qos = qts->in_qos;
+
+out_put_task:
+	put_task_struct(p);
+out:
+	return ret;
+}
+
 void init_task_qos(struct task_struct *p)
 {
 	struct qos_task_struct *qts = (struct qos_task_struct *) &p->qts;
@@ -432,6 +461,7 @@ static qos_manipulate_func qos_func_array[QOS_OPERATION_CMD_MAX_NR] = {
 	NULL,
 	qos_apply,  //1
 	qos_leave,
+	qos_get,
 };
 
 static long do_qos_manipulate(struct qos_ctrl_data *data)
@@ -479,7 +509,35 @@ static long ctrl_qos_operation(int abi, void __user *uarg)
 		return ret;
 	}
 
-	return do_qos_manipulate(&qos_data);
+	ret = do_qos_manipulate(&qos_data);
+	if (ret < 0) {
+		pr_err("[QOS_CTRL] CMD_ID_QOS_MANIPULATE failed\n");
+		return ret;
+	}
+
+#pragma GCC diagnostic push
+#pragma GCC diagonstic ignored "-Wpointer-to-int-cast"
+
+	switch (abi) {
+	case QOS_IOCTL_ABI_ARM32:
+		ret = copy_to_user((void __user *)compat_ptr((compat_uptr_t)uarg),
+				&qos_data, sizeof(struct qos_ctrl_data));
+		break;
+	case QOS_IOCTL_ABI_AARCH64:
+		ret = copy_to_user(uarg, &qos_data, sizeof(struct qos_ctrl_data));
+		break;
+	default:
+		pr_err("[QOS_CTRL] abi format error\n");
+		break;
+	}
+
+#pragma GCC diagnostic pop
+
+	if (ret) {
+		pr_err("[QOS_CTRL] %s copy to user failed\n", __func__);
+		return ret;
+	}
+	return 0;
 }
 
 #define MAX_LATENCY_NICE	19
