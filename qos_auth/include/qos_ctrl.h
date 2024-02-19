@@ -87,6 +87,7 @@ struct qos_policy_data {
 	int uclamp_min;
 	int uclamp_max;
 	int rt_sched_priority;
+	int policy;
 };
 
 #define QOS_FLAG_NICE			0x01
