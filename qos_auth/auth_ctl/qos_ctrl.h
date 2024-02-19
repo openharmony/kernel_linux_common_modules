@@ -22,6 +22,7 @@ struct qos_policy_item {
 	int uclamp_min;
 	int uclamp_max;
 	int rt_sched_priority;
+	int policy;
 };
 
 struct qos_policy_map {
