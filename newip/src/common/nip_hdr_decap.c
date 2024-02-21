@@ -12,81 +12,98 @@
 #include "nip_hdr.h"
 
 /* Must carry the current field */
-static int _get_nip_hdr_bitmap(unsigned char *buf,
+static int _get_nip_hdr_bitmap(struct nip_buff *nbuf,
 			       unsigned char bitmap[],
 			       unsigned char bitmap_index_max)
 {
 	int i = 0;
-	unsigned char *p = buf;
 
-	if (*p & NIP_BITMAP_INVALID_SET)
+	if (nbuf->remaining_len < sizeof(unsigned char))
+		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
+
+	if (*nbuf->data & NIP_BITMAP_INVALID_SET)
 		return -NIP_HDR_BITMAP_INVALID;
 
 	do {
 		if (i >= bitmap_index_max)
 			return -NIP_HDR_BITMAP_NUM_OUT_RANGE;
 
-		bitmap[i] = *p;
-		p++;
+		if (nbuf->remaining_len < sizeof(unsigned char))
+			return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
+
+		bitmap[i] = *nbuf->data;
+		nip_buff_pull(nbuf, sizeof(unsigned char));
 	} while (bitmap[i++] & NIP_BITMAP_HAVE_MORE_BIT);
 
 	return i;
 }
 
 /* Must carry the current field */
-static int _get_nip_hdr_ttl(const unsigned char *buf,
+static int _get_nip_hdr_ttl(struct nip_buff *nbuf,
 			    unsigned char bitmap,
 			    struct nip_hdr_decap *niph)
 {
 	if (!(bitmap & NIP_BITMAP_INCLUDE_TTL))
 		return -NIP_HDR_NO_TTL;
 
-	niph->ttl = *buf;
-	niph->include_ttl = 1;
+	if (nbuf->remaining_len < sizeof(niph->ttl))
+		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
 
-	return sizeof(niph->ttl);
+	niph->ttl = *nbuf->data;
+	niph->include_ttl = 1;
+	nip_buff_pull(nbuf, sizeof(niph->ttl));
+
+	return 0;
 }
 
 /* Optional fields */
 /* Communication between devices of the same version may not carry packet Header length,
  * but communication between devices of different versions must carry packet header length
  */
-static int _get_nip_hdr_len(const unsigned char *buf,
+static int _get_nip_hdr_len(struct nip_buff *nbuf,
 			    unsigned char bitmap,
 			    struct nip_hdr_decap *niph)
 {
 	if (!(bitmap & NIP_BITMAP_INCLUDE_HDR_LEN))
 		return 0;
 
+	if (nbuf->remaining_len < sizeof(niph->hdr_len))
+		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
+
 	/* Total_len is a network sequence and cannot be
 	 * compared directly with the local sequence
 	 */
-	niph->hdr_len = *buf;
+	niph->hdr_len = *nbuf->data;
 	niph->include_hdr_len = 1;
+	nip_buff_pull(nbuf, sizeof(niph->hdr_len));
 
 	if (niph->include_total_len && niph->hdr_len >= niph->rcv_buf_len)
 		return -NIP_HDR_LEN_OUT_RANGE;
 
-	return sizeof(niph->hdr_len);
+	return 0;
 }
 
 /* Must carry the current field */
-static int _get_nip_hdr_nexthdr(const unsigned char *buf,
+static int _get_nip_hdr_nexthdr(struct nip_buff *nbuf,
 				unsigned char bitmap,
 				struct nip_hdr_decap *niph)
 {
 	if (!(bitmap & NIP_BITMAP_INCLUDE_NEXT_HDR))
 		return -NIP_HDR_NO_NEXT_HDR;
 
-	niph->nexthdr = *buf;
-	niph->include_nexthdr = 1;
+	if (nbuf->remaining_len < sizeof(niph->nexthdr))
+		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
 
-	return sizeof(niph->nexthdr);
+	niph->nexthdr = *nbuf->data;
+	niph->include_nexthdr = 1;
+	nip_buff_pull(nbuf, sizeof(niph->nexthdr));
+
+	return 0;
 }
 
 /* Must carry the current field */
 /* Note: niph->saddr is network order.(big end) */
-static int _get_nip_hdr_daddr(unsigned char *buf,
+static int _get_nip_hdr_daddr(struct nip_buff *nbuf,
 			      unsigned char bitmap,
 			      struct nip_hdr_decap *niph)
 {
@@ -95,7 +112,7 @@ static int _get_nip_hdr_daddr(unsigned char *buf,
 	if (!(bitmap & NIP_BITMAP_INCLUDE_DADDR))
 		return -NIP_HDR_NO_DADDR;
 
-	p = decode_nip_addr(buf, &niph->daddr);
+	p = decode_nip_addr(nbuf, &niph->daddr);
 	if (!p)
 		return -NIP_HDR_DECAP_DADDR_ERR;
 
@@ -103,12 +120,12 @@ static int _get_nip_hdr_daddr(unsigned char *buf,
 		return -NIP_HDR_DADDR_INVALID;
 
 	niph->include_daddr = 1;
-	return (niph->daddr.bitlen / NIP_ADDR_BIT_LEN_8);
+	return 0;
 }
 
 /* Optional fields */
 /* Note: niph->daddr is network order.(big end) */
-static int _get_nip_hdr_saddr(unsigned char *buf,
+static int _get_nip_hdr_saddr(struct nip_buff *nbuf,
 			      unsigned char bitmap,
 			      struct nip_hdr_decap *niph)
 {
@@ -117,7 +134,7 @@ static int _get_nip_hdr_saddr(unsigned char *buf,
 	if (!(bitmap & NIP_BITMAP_INCLUDE_SADDR))
 		return 0;
 
-	p = decode_nip_addr(buf, &niph->saddr);
+	p = decode_nip_addr(nbuf, &niph->saddr);
 	if (!p)
 		return -NIP_HDR_DECAP_SADDR_ERR;
 
@@ -125,84 +142,80 @@ static int _get_nip_hdr_saddr(unsigned char *buf,
 		return -NIP_HDR_SADDR_INVALID;
 
 	niph->include_saddr = 1;
-	return (niph->saddr.bitlen / NIP_ADDR_BIT_LEN_8);
+	return 0;
 }
 
 /* Optional fields: tcp/arp need, udp needless */
 /* Note: niph->total_len is network order.(big end), need change to host order */
-static int _get_nip_total_len(unsigned char *buf,
+static int _get_nip_total_len(struct nip_buff *nbuf,
 			      unsigned char bitmap,
 			      struct nip_hdr_decap *niph)
 {
 	if (!(bitmap & NIP_BITMAP_INCLUDE_TOTAL_LEN))
 		return 0;
 
+	if (nbuf->remaining_len < sizeof(niph->total_len))
+		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
+
 	/* Total_len is a network sequence and cannot be
 	 * compared directly with the local sequence
 	 */
-	niph->total_len = *((unsigned short *)buf);
+	niph->total_len = *((unsigned short *)nbuf->data);
 	niph->include_total_len = 1;
+	nip_buff_pull(nbuf, sizeof(niph->total_len));
 
-	return sizeof(niph->total_len);
+	return 0;
 }
 
-static int _nip_hdr_bitmap0_parse(unsigned char *buf,
+static int _nip_hdr_bitmap0_parse(struct nip_buff *nbuf,
 				  unsigned char bitmap,
 				  struct nip_hdr_decap *niph)
 {
-	int len;
-	int len_total = 0;
+	int err;
 
-	len = _get_nip_hdr_ttl(buf, bitmap, niph);
-	if (len < 0)
-		return len;
-	len_total += len;
+	err = _get_nip_hdr_ttl(nbuf, bitmap, niph);
+	if (err < 0)
+		return err;
 
 	/* Optional fields */
-	len = _get_nip_total_len(buf + len_total, bitmap, niph);
-	if (len < 0)
-		return len;
-	len_total += len;
+	err = _get_nip_total_len(nbuf, bitmap, niph);
+	if (err < 0)
+		return err;
 
-	len = _get_nip_hdr_nexthdr(buf + len_total, bitmap, niph);
-	if (len < 0)
-		return len;
-	len_total += len;
+	err = _get_nip_hdr_nexthdr(nbuf, bitmap, niph);
+	if (err < 0)
+		return err;
 
-	len = _get_nip_hdr_daddr(buf + len_total, bitmap, niph);
-	if (len < 0)
-		return len;
-	len_total += len;
+	err = _get_nip_hdr_daddr(nbuf, bitmap, niph);
+	if (err < 0)
+		return err;
 
-	len = _get_nip_hdr_saddr(buf + len_total, bitmap, niph);
-	if (len < 0)
-		return len;
-	len_total += len;
+	err = _get_nip_hdr_saddr(nbuf, bitmap, niph);
+	if (err < 0)
+		return err;
 
-	return len_total;
+	return 0;
 }
 
-static int _nip_hdr_bitmap1_parse(unsigned char *buf,
+static int _nip_hdr_bitmap1_parse(struct nip_buff *nbuf,
 				  unsigned char bitmap,
 				  struct nip_hdr_decap *niph)
 {
-	int len;
-	int len_total = 0;
+	int err;
 
 	/* If add new field needs to be modified with the macro definition */
 	if (bitmap & NIP_INVALID_BITMAP_2)
 		niph->include_unknown_bit = 1;
 
 	/* Optional fields */
-	len = _get_nip_hdr_len(buf + len_total, bitmap, niph);
-	if (len < 0)
-		return len;
-	len_total += len;
+	err = _get_nip_hdr_len(nbuf, bitmap, niph);
+	if (err < 0)
+		return err;
 
-	return len_total;
+	return 0;
 }
 
-static int _nip_hdr_unknown_bit_check(unsigned char *buf,
+static int _nip_hdr_unknown_bit_check(struct nip_buff *nbuf,
 				      unsigned char bitmap,
 				      struct nip_hdr_decap *niph)
 {
@@ -211,7 +224,7 @@ static int _nip_hdr_unknown_bit_check(unsigned char *buf,
 }
 
 #define FACTORY_NUM_MAX 3
-static int (*hdr_parse_factory[FACTORY_NUM_MAX])(unsigned char *,
+static int (*hdr_parse_factory[FACTORY_NUM_MAX])(struct nip_buff *,
 						 unsigned char,
 						 struct nip_hdr_decap *) = {
 	_nip_hdr_bitmap0_parse,
@@ -242,33 +255,37 @@ int nip_hdr_parse(unsigned char *rcv_buf, unsigned int buf_len, struct nip_hdr_d
 {
 	int i = 0;
 	int ret;
-	unsigned char *buf = rcv_buf;
 	unsigned char bitmap[BITMAP_MAX] = {0};
-	int num = _get_nip_hdr_bitmap(buf, bitmap, BITMAP_MAX);
+	int num;
+	struct nip_buff nbuf;
 
-	if (num <= 0 || !rcv_buf)
+	nbuf.data = rcv_buf;
+	if (!nbuf.data)
+		return 0;
+
+	nbuf.remaining_len = buf_len;
+	num = _get_nip_hdr_bitmap(&nbuf, bitmap, BITMAP_MAX);
+	if (num <= 0)
 		return num;
-
-	niph->hdr_real_len = num * sizeof(bitmap[0]);
-	buf += niph->hdr_real_len;
 
 	niph->rcv_buf_len = buf_len;
 	while (i < num) {
-		int len;
+		int err;
 
 		if (i >= FACTORY_NUM_MAX)
 			break;
-		len = hdr_parse_factory[i](buf, bitmap[i], niph);
-		if (len < 0)
-			return len;
 
-		buf += len;
-		niph->hdr_real_len += len;
-		if (niph->hdr_real_len >= buf_len)
-			return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
+		err = hdr_parse_factory[i](&nbuf, bitmap[i], niph);
+		if (err < 0)
+			return err;
+
 		i++;
 	}
 
+	if (buf_len < nbuf.remaining_len)
+		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
+
+	niph->hdr_real_len = buf_len - nbuf.remaining_len;
 	ret = nip_hdr_check(niph);
 	if (ret < 0)
 		return ret;
