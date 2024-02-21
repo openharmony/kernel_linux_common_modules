@@ -45,9 +45,16 @@
 int nip_icmp_rcv(struct sk_buff *skb)
 {
 	int ret = 0;
-	struct nip_icmp_hdr *hdr = nip_icmp_header(skb);
-	u8 type = hdr->nip_icmp_type;
+	struct nip_icmp_hdr *hdr;
+	u8 type;
 
+	if (!pskb_may_pull(skb, sizeof(struct nip_icmp_hdr))) {
+		nip_dbg("invalid ICMP packet");
+		return -EINVAL;
+	}
+
+	hdr = nip_icmp_header(skb);
+	type = hdr->nip_icmp_type;
 	nip_dbg("rcv newip icmp packet. type=%u", type);
 	switch (type) {
 	case NIP_ARP_NS:
@@ -60,7 +67,20 @@ int nip_icmp_rcv(struct sk_buff *skb)
 	return ret;
 }
 
+static void nip_icmp_early_demux(struct sk_buff *skb)
+{
+}
+
+static void nip_icmp_err_handler(struct sk_buff *skb,
+				 struct ninet_skb_parm *opt,
+				 u8 type, u8 code,
+				 int offset, __be32 info)
+{
+}
+
 static const struct ninet_protocol nip_icmp_protocol = {
+	.early_demux = nip_icmp_early_demux,
+	.err_handler = nip_icmp_err_handler,
 	.handler = nip_icmp_rcv,
 	.flags = 0,
 };

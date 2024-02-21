@@ -24,6 +24,9 @@
  */
 void nip_ninet_ehashfn(const struct sock *sk, u32 *ret)
 {
+	if (!sk || !ret)
+		return;
+
 	*ret = ninet_ehashfn(sock_net(sk), &sk->SK_NIP_RCV_SADDR,
 			     sk->sk_num, &sk->SK_NIP_DADDR, sk->sk_dport);
 }

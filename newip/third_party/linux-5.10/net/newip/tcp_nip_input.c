@@ -817,6 +817,7 @@ static int tcp_nip_clean_rtx_queue(struct sock *sk, ktime_t *skb_snd_tstamp)
 		if (*skb_snd_tstamp == 0)
 			*skb_snd_tstamp = skb->tstamp;
 
+		tcp_nip_modify_send_head(sk, skb);
 		tcp_unlink_write_queue(skb, sk);
 		sk_wmem_free_skb(sk, skb);
 	}
@@ -1379,7 +1380,8 @@ static void tcp_nip_dup_ack_retrans(struct sock *sk, const struct sk_buff *skb,
 			 */
 			int mss = tcp_nip_current_mss(sk);
 			struct tcphdr *th = (struct tcphdr *)skb->data;
-			u16 discard_num = htons(th->urg_ptr);
+			u16 discard_num = htons(th->urg_ptr) > PKT_DISCARD_MAX ?
+					  0 : htons(th->urg_ptr);
 			u32 last_nip_ssthresh = ntp->nip_ssthresh;
 
 			if (tp->selective_acks[0].end_seq)
@@ -1567,7 +1569,56 @@ static void tcp_nip_ack_calc_ssthresh(struct sock *sk, u32 ack, int icsk_rto_las
 	}
 }
 
-static int tcp_nip_ack(struct sock *sk, const struct sk_buff *skb)
+static bool __tcp_nip_oow_rate_limited(struct net *net, int mib_idx, u32 *last_oow_ack_time)
+{
+	if (*last_oow_ack_time) {
+		s32 elapsed = (s32)(tcp_jiffies32 - *last_oow_ack_time);
+
+		if (elapsed >= 0 &&
+		    elapsed < READ_ONCE(net->ipv4.sysctl_tcp_invalid_ratelimit)) {
+			NET_INC_STATS(net, mib_idx);
+			return true;	/* rate-limited: don't send yet! */
+		}
+	}
+
+	*last_oow_ack_time = tcp_jiffies32;
+
+	return false;	/* not rate-limited: go ahead, send dupack now! */
+}
+
+static void tcp_nip_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+{
+	/* unprotected vars, we dont care of overwrites */
+	static u32 nip_challenge_timestamp;
+	static unsigned int nip_challenge_count;
+	struct tcp_sock *tp = tcp_sk(sk);
+	struct net *net = sock_net(sk);
+	u32 count, now;
+
+	/* First check our per-socket dupack rate limit. */
+	if (__tcp_nip_oow_rate_limited(net,
+				       LINUX_MIB_TCPACKSKIPPEDCHALLENGE,
+				       &tp->last_oow_ack_time))
+		return;
+
+	/* Then check host-wide RFC 5961 rate limit. */
+	now = jiffies / HZ;
+	if (now != READ_ONCE(nip_challenge_timestamp)) {
+		u32 ack_limit = READ_ONCE(net->ipv4.sysctl_tcp_challenge_ack_limit);
+		u32 half = (ack_limit + 1) >> 1;
+
+		WRITE_ONCE(nip_challenge_timestamp, now);
+		WRITE_ONCE(nip_challenge_count, half + prandom_u32_max(ack_limit));
+	}
+	count = READ_ONCE(nip_challenge_count);
+	if (count > 0) {
+		WRITE_ONCE(nip_challenge_count, count - 1);
+		NET_INC_STATS(net, LINUX_MIB_TCPCHALLENGEACK);
+		tcp_nip_send_ack(sk);
+	}
+}
+
+static int tcp_nip_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct tcp_nip_common *ntp = &tcp_nip_sk(sk)->common;
@@ -1578,8 +1629,15 @@ static int tcp_nip_ack(struct sock *sk, const struct sk_buff *skb)
 	int prior_packets = tp->packets_out;
 	ktime_t skb_snd_tstamp = 0;
 
-	if (before(ack, prior_snd_una))
+	if (before(ack, prior_snd_una)) {
+		if (before(ack, prior_snd_una - tp->max_window)) {
+			if (!(flag & FLAG_NO_CHALLENGE_ACK))
+				tcp_nip_send_challenge_ack(sk, skb);
+			return -1;
+		}
 		return 0;
+	}
+
 	if (after(ack, tp->snd_nxt))
 		return -1;
 
@@ -1730,10 +1788,13 @@ void tcp_nip_rcv_established(struct sock *sk, struct sk_buff *skb,
 	if (unlikely(!rcu_access_pointer(sk->sk_rx_dst)))
 		inet_csk(sk)->icsk_af_ops->sk_rx_dst_set(sk, skb);
 
+	if (skb->len < (th->doff << 2))
+		return;
+
 	if (!tcp_nip_validate_incoming(sk, skb, th, 1))
 		return;
 
-	if (tcp_nip_ack(sk, skb) < 0)
+	if (tcp_nip_ack(sk, skb, FLAG_SLOWPATH | FLAG_UPDATE_TS_RECENT) < 0)
 		goto discard;
 
 	tcp_nip_data_queue(sk, skb);
@@ -1863,7 +1924,7 @@ static int tcp_nip_rcv_synsent_state_process(struct sock *sk, struct sk_buff *sk
 
 		tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
 
-		tcp_nip_ack(sk, skb);
+		tcp_nip_ack(sk, skb, FLAG_SLOWPATH);
 		tp->out_of_order_queue = RB_ROOT;
 		/* The next data number expected to be accepted is +1 */
 		tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
@@ -1992,7 +2053,9 @@ int tcp_nip_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 	if (!tcp_nip_validate_incoming(sk, skb, th, 0))
 		return 0;
 
-	acceptable = tcp_nip_ack(sk, skb);
+	acceptable = tcp_nip_ack(sk, skb, FLAG_SLOWPATH |
+				  FLAG_UPDATE_TS_RECENT |
+				  FLAG_NO_CHALLENGE_ACK) > 0;
 	/* If the third handshake ACK is invalid, 1 is returned
 	 * and the SKB is discarded in tcp_nip_rcv
 	 */

@@ -163,6 +163,12 @@ static inline struct tcp_nip_request_sock *tcp_nip_rsk(const struct request_sock
 	return (struct tcp_nip_request_sock *)req;
 }
 
+static inline void tcp_nip_modify_send_head(struct sock *sk, const struct sk_buff *skb)
+{
+	if (tcp_skb_is_last(sk, skb))
+		sk->sk_send_head = NULL;
+}
+
 /* connect */
 int __tcp_nip_connect(struct sock *sk);
 int _tcp_nip_conn_request(struct request_sock_ops *rsk_ops,
