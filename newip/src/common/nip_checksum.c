@@ -38,7 +38,7 @@ unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
 	unsigned short hdr_len = 0;
 
 	addr_len = chksum_header->saddr.bitlen / NIP_ADDR_BIT_LEN_8;
-	if (addr_len) {
+	if (addr_len && addr_len < NIP_HDR_MAX) {
 		j = 0;
 		for (i = 0; i < addr_len; i++, j++)
 			pseudo_header[j] = chksum_header->saddr.NIP_ADDR_FIELD8[i];
@@ -46,7 +46,7 @@ unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
 	}
 
 	addr_len = chksum_header->daddr.bitlen / NIP_ADDR_BIT_LEN_8;
-	if (addr_len) {
+	if (addr_len && addr_len < NIP_HDR_MAX) {
 		j = hdr_len;
 		for (i = 0; i < addr_len; i++, j++)
 			pseudo_header[j] = chksum_header->daddr.NIP_ADDR_FIELD8[i];
@@ -54,10 +54,15 @@ unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
 	}
 
 	/* chksum_header->check_len is network order.(big end) */
-	*(unsigned short *)(pseudo_header + hdr_len) = chksum_header->check_len;
-	hdr_len += sizeof(chksum_header->check_len);
-	*(pseudo_header + hdr_len) = chksum_header->nexthdr;
-	hdr_len += sizeof(chksum_header->nexthdr);
+	if (hdr_len < NIP_HDR_MAX) {
+		*(unsigned short *)(pseudo_header + hdr_len) = chksum_header->check_len;
+		hdr_len += sizeof(chksum_header->check_len);
+	}
+
+	if (hdr_len < NIP_HDR_MAX) {
+		*(pseudo_header + hdr_len) = chksum_header->nexthdr;
+		hdr_len += sizeof(chksum_header->nexthdr);
+	}
 
 	return _nip_check_sum(pseudo_header, hdr_len);
 }
