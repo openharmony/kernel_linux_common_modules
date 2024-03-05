@@ -94,7 +94,7 @@ static dev_t get_root_partition_dev(struct path *root_path)
 		mount_path = root_path;
 	ret = kern_path("/", LOOKUP_DIRECTORY, mount_path);
 	if (ret) {
-		xpm_log_error("get / path failed.");
+		xpm_log_error("get / path failed");
 		return DM_VERITY_INVALID_DEV;
 	}
 	s_dev = get_partition_dev_form_mnt(mount_path->mnt);
