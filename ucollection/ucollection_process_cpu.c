@@ -74,8 +74,6 @@ static void get_process_usage_cputime(struct task_struct *task, unsigned long lo
 	unsigned long long utime, stime;
 
 	thread_group_cputime_adjusted(task, &utime, &stime);
-	utime = utime + task->signal->cutime;
-	stime = stime + task->signal->cstime;
 	do_div(utime, NS_TO_MS);
 	do_div(stime, NS_TO_MS);
 	*ut = utime;
