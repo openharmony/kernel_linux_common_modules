@@ -50,11 +50,16 @@ struct dm_partition {
 
 static struct dm_partition	dm_partition_table[] = {
 	{ .path = "/",           .len = 1,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/cust/",      .len = 6,  .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/system/",    .len = 8,  .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/vendor/",    .len = 8,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/version/",   .len = 9,  .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/preload/",   .len = 9,  .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/sys_prod/",  .len = 10, .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/chip_prod/", .len = 11, .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/module_updata/",             .len = 15, .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/vendor/modem/modem_vendor/", .len = 27, .s_dev = DM_VERITY_INVALID_DEV },
+	{ .path = "/vendor/modem/modem_driver/", .len = 27, .s_dev = DM_VERITY_INVALID_DEV },
 	{ .path = "/misc/",      .len = 6,  .s_dev = DM_VERITY_INVALID_DEV },
 };
 
