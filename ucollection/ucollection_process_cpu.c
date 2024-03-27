@@ -31,15 +31,6 @@ unsigned long long __attribute__((weak)) get_proc_cpu_load(struct task_struct *t
 	return 0;
 }
 
-static int get_cpu_num(void)
-{
-	int core_num = 0;
-	int i = 0;
-	for_each_possible_cpu(i)
-		core_num++;
-	return core_num;
-}
-
 static void get_process_flt(struct task_struct *task, unsigned long long *min_flt, unsigned long long *maj_flt)
 {
 	unsigned long tmp_min_flt = 0;
@@ -80,7 +71,7 @@ static void get_process_usage_cputime(struct task_struct *task, unsigned long lo
 	*st = stime;
 }
 
-static void get_process_load(struct task_struct *task, int cpu_num, int cur_count,
+static void get_process_load(struct task_struct *task, int cur_count,
 	struct ucollection_process_cpu_entry __user *entry)
 {
 	struct ucollection_process_cpu_item proc_cpu_entry;
@@ -92,9 +83,25 @@ static void get_process_load(struct task_struct *task, int cpu_num, int cur_coun
 	(void)copy_to_user(&entry->datas[cur_count], &proc_cpu_entry, sizeof(struct ucollection_process_cpu_item));
 }
 
+static void get_thread_load(struct task_struct *task, int cur_count,
+	struct ucollection_thread_cpu_entry __user *entry)
+{
+	struct ucollection_thread_cpu_item thread_cpu_item;
+	memset(&thread_cpu_item, 0, sizeof(struct ucollection_thread_cpu_item));
+	unsigned long long utime, stime;
+	utime = task->utime;
+	stime = task->stime;
+	do_div(utime, NS_TO_MS);
+	do_div(stime, NS_TO_MS);
+	thread_cpu_item.tid = task->pid;
+	thread_cpu_item.cpu_usage_utime = utime;
+	thread_cpu_item.cpu_usage_stime = stime;
+	thread_cpu_item.cpu_load_time = 0;
+	(void)copy_to_user(&entry->datas[cur_count], &thread_cpu_item, sizeof(struct ucollection_thread_cpu_item));
+}
+
 static long ioctrl_collect_process_cpu(void __user *argp)
 {
-	int cpu_num = 0;
 	struct task_struct *task = NULL;
 	struct ucollection_process_cpu_entry kentry;
 	struct ucollection_process_cpu_entry __user *entry = argp;
@@ -106,7 +113,6 @@ static long ioctrl_collect_process_cpu(void __user *argp)
 	memset(&kentry, 0, sizeof(struct ucollection_process_cpu_entry));
 	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_process_cpu_entry));
 
-	cpu_num = get_cpu_num();
 	rcu_read_lock();
 	task = &init_task;
 	for_each_process(task) {
@@ -118,7 +124,7 @@ static long ioctrl_collect_process_cpu(void __user *argp)
 			break;
 		}
 
-		get_process_load(task, cpu_num, kentry.cur_count, entry);
+		get_process_load(task, kentry.cur_count, entry);
 		kentry.cur_count++;
 	}
 	put_user(kentry.cur_count, &entry->cur_count);
@@ -136,9 +142,108 @@ static bool is_pid_alive(int pid)
 	return pid_alive(task);
 }
 
+static long ioctrl_collect_thread_count(void __user *argp)
+{
+	struct task_struct *task = NULL;
+	struct ucollection_process_thread_count kcount;
+	struct ucollection_process_thread_count __user *count = argp;
+	if (count == NULL) {
+		pr_err("cpu entry is null");
+		return -EINVAL;
+	}
+	memset(&kcount, 0, sizeof(struct ucollection_process_thread_count));
+	(void)copy_from_user(&kcount, count, sizeof(struct ucollection_process_thread_count));
+	rcu_read_lock();
+	if (!is_pid_alive(kcount.pid)) {
+		pr_err("pid=%d is not alive", kcount.pid);
+		rcu_read_unlock();
+		return -EINVAL;
+	}
+	task = find_task_by_vpid(kcount.pid);
+	if (task == NULL) {
+		pr_err("can not get pid=%d", task->pid);
+		rcu_read_unlock();
+		return -EINVAL;
+	}
+	uint32_t thread_count = 0;
+	struct task_struct *t = task;
+	do {
+		thread_count++;
+	} while_each_thread(task, t);
+	put_user(thread_count, &count->thread_count);
+	rcu_read_unlock();
+	return 0;
+}
+
+static long read_thread_info_locked(struct ucollection_thread_cpu_entry *kentry,
+    struct ucollection_thread_cpu_entry __user *entry)
+{
+	rcu_read_lock();
+	if (!is_pid_alive(kentry->filter.pid)) {
+		pr_err("pid=%d is not alive", kentry->filter.pid);
+		rcu_read_unlock();
+		return -EINVAL;
+	}
+	struct task_struct *task = NULL;
+	task = find_task_by_vpid(kentry->filter.pid);
+	if (task == NULL) {
+		pr_err("can not get pid=%d", task->pid);
+		rcu_read_unlock();
+		return -EINVAL;
+	}
+	uint32_t thread_count = 0;
+	struct task_struct *t = task;
+	do {
+		if (thread_count >= kentry->total_count) {
+			pr_err("thread over total count");
+			break;
+		}
+		get_thread_load(t, thread_count, entry);
+		thread_count++;
+	} while_each_thread(task, t);
+	put_user(thread_count, &entry->cur_count);
+	rcu_read_unlock();
+	return 0;
+}
+
+static long ioctrl_collect_app_thread_cpu(void __user *argp)
+{
+	struct ucollection_thread_cpu_entry kentry;
+	struct ucollection_thread_cpu_entry __user *entry = argp;
+	if (entry == NULL) {
+		pr_err("cpu entry is null");
+		return -EINVAL;
+	}
+	memset(&kentry, 0, sizeof(struct ucollection_thread_cpu_entry));
+	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_thread_cpu_entry));
+	if (current->pid != kentry.filter.pid || kentry.cur_count >= kentry.total_count) {
+		pr_err("pid=%d is not self current:%d , or current count over total count"
+		    , kentry.filter.pid, current->pid);
+		return -EINVAL;
+	}
+	return read_thread_info_locked(&kentry, entry);
+}
+
+static long ioctrl_collect_the_thread_cpu(void __user *argp)
+{
+	struct ucollection_thread_cpu_entry kentry;
+	struct ucollection_thread_cpu_entry __user *entry = argp;
+	if (entry == NULL) {
+		pr_err("cpu entry is null");
+		return -EINVAL;
+	}
+	memset(&kentry, 0, sizeof(struct ucollection_thread_cpu_entry));
+	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_thread_cpu_entry));
+	if (kentry.cur_count >= kentry.total_count) {
+		pr_err("pid=%d is not self current:%d , or current count over total count"
+		    , kentry.filter.pid, current->pid);
+		return -EINVAL;
+	}
+	return read_thread_info_locked(&kentry, entry);
+}
+
 static long ioctrl_collect_the_process_cpu(void __user *argp)
 {
-	int cpu_num = 0;
 	struct task_struct *task = NULL;
 	struct ucollection_process_cpu_entry kentry;
 	struct ucollection_process_cpu_entry __user *entry = argp;
@@ -169,28 +274,10 @@ static long ioctrl_collect_the_process_cpu(void __user *argp)
 		return -EINVAL;
 	}
 
-	cpu_num = get_cpu_num();
-	get_process_load(task, cpu_num, kentry.cur_count, entry);
+	get_process_load(task, kentry.cur_count, entry);
 	kentry.cur_count++;
 	put_user(kentry.cur_count, &entry->cur_count);
 	rcu_read_unlock();
-	return 0;
-}
-
-static long ioctrl_set_cpu_dmips(void __user *argp)
-{
-	int i;
-	struct ucollection_cpu_dmips kentry;
-	struct ucollection_cpu_dmips __user *entry = argp;
-	memset(&kentry, 0, sizeof(struct ucollection_cpu_dmips));
-	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_cpu_dmips));
-	pr_info("set dimps %d cpus\n", kentry.total_count);
-	for (i = 0; i < DMIPS_NUM; i++) {
-		if (i >= kentry.total_count)
-			break;
-		get_user(dmips_values[i], &entry->dmips[i]);
-		pr_info("set dimps cpu[%d]=%d\n", i, dmips_values[i]);
-	}
 	return 0;
 }
 
@@ -204,8 +291,14 @@ long unified_collection_collect_process_cpu(unsigned int cmd, void __user *argp)
 	case IOCTRL_COLLECT_THE_PROC_CPU:
 		ret = ioctrl_collect_the_process_cpu(argp);
 		break;
-	case IOCTRL_SET_CPU_DMIPS:
-		ret = ioctrl_set_cpu_dmips(argp);
+	case IOCTRL_COLLECT_THREAD_COUNT:
+		ret = ioctrl_collect_thread_count(argp);
+		break;
+	case IOCTRL_COLLECT_APP_THREAD:
+		ret = ioctrl_collect_app_thread_cpu(argp);
+		break;
+	case IOCTRL_COLLECT_THE_THREAD:
+		ret = ioctrl_collect_the_thread_cpu(argp);
 		break;
 	default:
 		pr_err("handle ioctrl cmd %u, _IOC_TYPE(cmd)=%d", cmd, _IOC_TYPE(cmd));
