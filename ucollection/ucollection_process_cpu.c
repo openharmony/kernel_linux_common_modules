@@ -176,7 +176,7 @@ static long ioctrl_collect_thread_count(void __user *argp)
 }
 
 static long read_thread_info_locked(struct ucollection_thread_cpu_entry *kentry,
-    struct ucollection_thread_cpu_entry __user *entry)
+	struct ucollection_thread_cpu_entry __user *entry)
 {
 	rcu_read_lock();
 	if (!is_pid_alive(kentry->filter.pid)) {
@@ -218,7 +218,7 @@ static long ioctrl_collect_app_thread_cpu(void __user *argp)
 	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_thread_cpu_entry));
 	if (current->pid != kentry.filter.pid || kentry.cur_count >= kentry.total_count) {
 		pr_err("pid=%d is not self current:%d , or current count over total count"
-		    , kentry.filter.pid, current->pid);
+			, kentry.filter.pid, current->pid);
 		return -EINVAL;
 	}
 	return read_thread_info_locked(&kentry, entry);
@@ -236,7 +236,7 @@ static long ioctrl_collect_the_thread_cpu(void __user *argp)
 	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_thread_cpu_entry));
 	if (kentry.cur_count >= kentry.total_count) {
 		pr_err("pid=%d is not self current:%d , or current count over total count"
-		    , kentry.filter.pid, current->pid);
+			, kentry.filter.pid, current->pid);
 		return -EINVAL;
 	}
 	return read_thread_info_locked(&kentry, entry);
