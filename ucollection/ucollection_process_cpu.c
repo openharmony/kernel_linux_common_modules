@@ -31,16 +31,17 @@ unsigned long long __attribute__((weak)) get_proc_cpu_load(struct task_struct *t
 	return 0;
 }
 
-static void get_process_flt(struct task_struct *task, unsigned long long *min_flt, unsigned long long *maj_flt)
+static void get_process_flt(struct task_struct *task, struct ucollection_process_cpu_item* proc_cpu_entry)
 {
 	unsigned long tmp_min_flt = 0;
 	unsigned long tmp_maj_flt = 0;
 
 	struct task_struct *t = task;
+	signed int thread_count = 0;
 	do {
 		tmp_min_flt += t->min_flt;
 		tmp_maj_flt += t->maj_flt;
-
+		++thread_count;
 	} while_each_thread(task, t);
 
 	struct signal_struct *sig = task->signal;
@@ -49,8 +50,9 @@ static void get_process_flt(struct task_struct *task, unsigned long long *min_fl
 		tmp_maj_flt += sig->maj_flt;
 	}
 
-	*min_flt = tmp_min_flt;
-	*maj_flt = tmp_maj_flt;
+	proc_cpu_entry->min_flt = tmp_min_flt;
+	proc_cpu_entry->maj_flt = tmp_maj_flt;
+	proc_cpu_entry->thread_total = thread_count;
 }
 
 static unsigned long long get_process_load_cputime(struct task_struct *task)
@@ -77,7 +79,7 @@ static void get_process_load(struct task_struct *task, int cur_count,
 	struct ucollection_process_cpu_item proc_cpu_entry;
 	memset(&proc_cpu_entry, 0, sizeof(struct ucollection_process_cpu_item));
 	proc_cpu_entry.pid = task->pid;
-	get_process_flt(task, &proc_cpu_entry.min_flt, &proc_cpu_entry.maj_flt);
+	get_process_flt(task, &proc_cpu_entry);
 	proc_cpu_entry.cpu_load_time = get_process_load_cputime(task);
 	get_process_usage_cputime(task, &proc_cpu_entry.cpu_usage_utime, &proc_cpu_entry.cpu_usage_stime);
 	(void)copy_to_user(&entry->datas[cur_count], &proc_cpu_entry, sizeof(struct ucollection_process_cpu_item));
@@ -132,19 +134,36 @@ static long ioctrl_collect_process_cpu(void __user *argp)
 	return 0;
 }
 
-static bool is_pid_alive(int pid)
+static struct task_struct* get_alive_task_by_pid(unsigned int pid)
 {
 	struct task_struct *task = NULL;
-	task = pid_task(find_vpid(pid), PIDTYPE_PID);
-	if (task == NULL)
-		return false;
+	task = find_task_by_pid_ns(pid, &init_pid_ns);
+	if (task == NULL || !pid_alive(task)) {
+		return NULL;
+	}
+	return task;
+}
 
-	return pid_alive(task);
+static long ioctrl_collect_process_count(void __user *argp)
+{
+	struct task_struct *task = NULL;
+	unsigned int process_count = 0;
+	unsigned int __user *count = argp;
+	rcu_read_lock();
+	task = &init_task;
+	for_each_process(task) {
+		if (task->pid != task->tgid) {
+			continue;
+		}
+		++process_count;
+	}
+	rcu_read_unlock();
+	put_user(process_count, count);
+	return 0;
 }
 
 static long ioctrl_collect_thread_count(void __user *argp)
 {
-	struct task_struct *task = NULL;
 	struct ucollection_process_thread_count kcount;
 	struct ucollection_process_thread_count __user *count = argp;
 	if (count == NULL) {
@@ -154,14 +173,9 @@ static long ioctrl_collect_thread_count(void __user *argp)
 	memset(&kcount, 0, sizeof(struct ucollection_process_thread_count));
 	(void)copy_from_user(&kcount, count, sizeof(struct ucollection_process_thread_count));
 	rcu_read_lock();
-	if (!is_pid_alive(kcount.pid)) {
-		pr_err("pid=%d is not alive", kcount.pid);
-		rcu_read_unlock();
-		return -EINVAL;
-	}
-	task = find_task_by_vpid(kcount.pid);
+	struct task_struct *task = get_alive_task_by_pid(kcount.pid);
 	if (task == NULL) {
-		pr_err("can not get pid=%d", task->pid);
+		pr_info("pid=%d is task NULL or not alive", kcount.pid);
 		rcu_read_unlock();
 		return -EINVAL;
 	}
@@ -179,15 +193,9 @@ static long read_thread_info_locked(struct ucollection_thread_cpu_entry *kentry,
 	struct ucollection_thread_cpu_entry __user *entry)
 {
 	rcu_read_lock();
-	if (!is_pid_alive(kentry->filter.pid)) {
-		pr_err("pid=%d is not alive", kentry->filter.pid);
-		rcu_read_unlock();
-		return -EINVAL;
-	}
-	struct task_struct *task = NULL;
-	task = find_task_by_vpid(kentry->filter.pid);
+	struct task_struct *task = get_alive_task_by_pid(kentry->filter.pid);
 	if (task == NULL) {
-		pr_err("can not get pid=%d", task->pid);
+		pr_info("pid=%d is task NULL not alive", kentry->filter.pid);
 		rcu_read_unlock();
 		return -EINVAL;
 	}
@@ -244,7 +252,6 @@ static long ioctrl_collect_the_thread_cpu(void __user *argp)
 
 static long ioctrl_collect_the_process_cpu(void __user *argp)
 {
-	struct task_struct *task = NULL;
 	struct ucollection_process_cpu_entry kentry;
 	struct ucollection_process_cpu_entry __user *entry = argp;
 	if (entry == NULL) {
@@ -261,15 +268,9 @@ static long ioctrl_collect_the_process_cpu(void __user *argp)
 	}
 
 	rcu_read_lock();
-	if (!is_pid_alive(kentry.filter.pid)) {
-		pr_err("pid=%d is not alive", kentry.filter.pid);
-		rcu_read_unlock();
-		return -EINVAL;
-	}
-
-	task = find_task_by_vpid(kentry.filter.pid);
+	struct task_struct *task = get_alive_task_by_pid(kentry.filter.pid);
 	if (task == NULL) {
-		pr_err("can not get pid=%d", task->pid);
+		pr_info("pid=%d is task null or not alive", kentry.filter.pid);
 		rcu_read_unlock();
 		return -EINVAL;
 	}
@@ -299,6 +300,9 @@ long unified_collection_collect_process_cpu(unsigned int cmd, void __user *argp)
 		break;
 	case IOCTRL_COLLECT_THE_THREAD:
 		ret = ioctrl_collect_the_thread_cpu(argp);
+		break;
+	case IOCTRL_COLLECT_PROC_COUNT:
+		ret = ioctrl_collect_process_count(argp);
 		break;
 	default:
 		pr_err("handle ioctrl cmd %u, _IOC_TYPE(cmd)=%d", cmd, _IOC_TYPE(cmd));
