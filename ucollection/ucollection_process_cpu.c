@@ -224,9 +224,9 @@ static long ioctrl_collect_app_thread_cpu(void __user *argp)
 	}
 	memset(&kentry, 0, sizeof(struct ucollection_thread_cpu_entry));
 	(void)copy_from_user(&kentry, entry, sizeof(struct ucollection_thread_cpu_entry));
-	if (current->pid != kentry.filter.pid || kentry.cur_count >= kentry.total_count) {
-		pr_err("pid=%d is not self current:%d , or current count over total count"
-			, kentry.filter.pid, current->pid);
+	if (current->tgid != kentry.filter.pid || kentry.cur_count >= kentry.total_count) {
+		pr_err("pid=%d is not self current tgid:%d , or current count over total count"
+			, kentry.filter.pid, current->tgid);
 		return -EINVAL;
 	}
 	return read_thread_info_locked(&kentry, entry);
