@@ -191,6 +191,8 @@ static int ninet_create(struct net *net, struct socket *sock, int protocol,
 	err = 0;
 	if (answer_flags & INET_PROTOSW_REUSE)
 		sk->sk_reuse = SK_CAN_REUSE;
+	if (INET_PROTOSW_ICSK & answer_flags)
+		inet_init_csk_locks(sk);
 	inet = inet_sk(sk);
 	inet->is_icsk = (answer_flags & INET_PROTOSW_ICSK) != 0;
 	inet->nodefrag = 0;
@@ -251,11 +253,13 @@ int ninet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	struct inet_sock *inet = inet_sk(sk);
 	struct net *net = sock_net(sk);
 	u_short snum;
+	const struct proto *prot;
 	int err = 0;
 
 	/* If the socket has its own bind function then use it */
-	if (sk->sk_prot->bind)
-		return sk->sk_prot->bind(sk, uaddr, addr_len);
+	prot = READ_ONCE(sk->sk_prot);
+	if (prot->bind)
+		return prot->bind(sk, uaddr, addr_len);
 
 	if (addr_len < sizeof(struct sockaddr_nin))
 		return -EINVAL;
@@ -486,6 +490,7 @@ int ninet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	struct sock *sk = sock->sk;
 	struct net *net = sock_net(sk);
+	const struct proto *prot;
 
 	nip_dbg("cmd=0x%x", cmd);
 	switch (cmd) {
@@ -519,11 +524,12 @@ int ninet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 		return err;
 	}
 	default:
-		if (!sk->sk_prot->ioctl) {
+		prot = READ_ONCE(sk->sk_prot);
+		if (!prot->ioctl) {
 			nip_dbg("sock sk_prot ioctl is null, cmd=0x%x", cmd);
 			return -ENOIOCTLCMD;
 		}
-		return sk->sk_prot->ioctl(sk, cmd, arg);
+		return prot->ioctl(sk, cmd, arg);
 	}
 }
 
