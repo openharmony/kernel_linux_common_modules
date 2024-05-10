@@ -162,6 +162,26 @@ static long ioctrl_collect_process_count(void __user *argp)
 	return 0;
 }
 
+static long read_thread_count_locked(struct ucollection_process_thread_count *kcount,
+	struct ucollection_process_thread_count __user *count)
+{
+	rcu_read_lock();
+	struct task_struct *task = get_alive_task_by_pid(kcount->pid);
+	if (task == NULL) {
+		pr_info("pid=%d is task NULL or not alive", kcount->pid);
+		rcu_read_unlock();
+		return -EINVAL;
+	}
+	unsigned int thread_count = 0;
+	struct task_struct *t = task;
+	do {
+		thread_count++;
+	} while_each_thread(task, t);
+	put_user(thread_count, &count->thread_count);
+	rcu_read_unlock();
+	return 0;
+}
+
 static long ioctrl_collect_thread_count(void __user *argp)
 {
 	struct ucollection_process_thread_count kcount;
@@ -172,21 +192,24 @@ static long ioctrl_collect_thread_count(void __user *argp)
 	}
 	memset(&kcount, 0, sizeof(struct ucollection_process_thread_count));
 	(void)copy_from_user(&kcount, count, sizeof(struct ucollection_process_thread_count));
-	rcu_read_lock();
-	struct task_struct *task = get_alive_task_by_pid(kcount.pid);
-	if (task == NULL) {
-		pr_info("pid=%d is task NULL or not alive", kcount.pid);
-		rcu_read_unlock();
+	return read_thread_count_locked(&kcount, count);
+}
+
+static long ioctrl_collect_app_thread_count(void __user *argp)
+{
+	struct ucollection_process_thread_count kcount;
+	struct ucollection_process_thread_count __user *count = argp;
+	if (count == NULL) {
+		pr_err("cpu entry is null");
 		return -EINVAL;
 	}
-	uint32_t thread_count = 0;
-	struct task_struct *t = task;
-	do {
-		thread_count++;
-	} while_each_thread(task, t);
-	put_user(thread_count, &count->thread_count);
-	rcu_read_unlock();
-	return 0;
+	memset(&kcount, 0, sizeof(struct ucollection_process_thread_count));
+	(void)copy_from_user(&kcount, count, sizeof(struct ucollection_process_thread_count));
+	if (current->tgid != kcount.pid) {
+		pr_err("pid=%d is not self current tgid:%d", kcount.pid, current->tgid);
+		return -EINVAL;
+	}
+	return read_thread_count_locked(&kcount, count);
 }
 
 static long read_thread_info_locked(struct ucollection_thread_cpu_entry *kentry,
@@ -199,7 +222,7 @@ static long read_thread_info_locked(struct ucollection_thread_cpu_entry *kentry,
 		rcu_read_unlock();
 		return -EINVAL;
 	}
-	uint32_t thread_count = 0;
+	unsigned int thread_count = 0;
 	struct task_struct *t = task;
 	do {
 		if (thread_count >= kentry->total_count) {
@@ -294,6 +317,9 @@ long unified_collection_collect_process_cpu(unsigned int cmd, void __user *argp)
 		break;
 	case IOCTRL_COLLECT_THREAD_COUNT:
 		ret = ioctrl_collect_thread_count(argp);
+		break;
+	case IOCTRL_COLLECT_APP_THREAD_COUNT:
+		ret = ioctrl_collect_app_thread_count(argp);
 		break;
 	case IOCTRL_COLLECT_APP_THREAD:
 		ret = ioctrl_collect_app_thread_cpu(argp);
