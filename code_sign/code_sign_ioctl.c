@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2024 Huawei Device Co., Ltd.
  */
 
 #include <linux/fs.h>
@@ -255,19 +255,11 @@ copy_source_failed:
 
 int code_sign_check_code(int code)
 {
-	int is_dev_mode = 0;
-
 	if (code > RELEASE_CODE_START && code < RELEASE_CODE_END)
-		return is_dev_mode;
+		return 0;
 
-	// developer mode
-	if (get_developer_mode_state() == STATE_ON) {
-		code_sign_log_debug("developer mode on");
-		is_dev_mode = 1;
-	}
-
-	if (is_dev_mode && (code > DEBUG_CODE_START && code < DEBUG_CODE_END))
-		return is_dev_mode;
+	if (code > DEBUG_CODE_START && code < DEBUG_CODE_END)
+		return 1;
 
 	code_sign_log_error("cert type %x is invalid", code);
 	return -EINVAL;
@@ -294,10 +286,12 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 			if (ret < 0)
 				return ret;
 
-			if (ret) {
+			if (ret == 1) {
 				// developer cert
-				code_sign_log_debug("add developer cert");
-				ret = cert_chain_insert(&dev_cert_chain_tree, source);
+				if (get_developer_mode_state() == STATE_ON) {
+					code_sign_log_debug("add developer cert");
+					ret = cert_chain_insert(&dev_cert_chain_tree, source);
+				}
 			} else {
 				code_sign_log_debug("add release cert");
 				ret = cert_chain_insert(&cert_chain_tree, source);
@@ -318,10 +312,12 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 			if (ret < 0)
 				return ret;
 
-			if (ret) {
+			if (ret == 1) {
 				// developer cert
-				code_sign_log_debug("remove developer cert");
-				ret = cert_chain_remove(&dev_cert_chain_tree, source);
+				if (get_developer_mode_state() == STATE_ON) {
+					code_sign_log_debug("remove developer cert");
+					ret = cert_chain_remove(&dev_cert_chain_tree, source);
+				}
 			} else {
 				code_sign_log_debug("remove release cert");
 				ret = cert_chain_remove(&cert_chain_tree, source);
