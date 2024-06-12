@@ -1866,9 +1866,28 @@ int tc_ns_smc_with_no_nr(struct tc_ns_smc_cmd *cmd)
 	return proc_tc_ns_smc(cmd, true);
 }
 
-static void smc_work_no_wait(uint32_t type)
+static void send_smc_cmd_with_retry(struct smc_in_params *in_param,
+	struct smc_out_params *out_param)
 {
-	(void) raw_smc_send(TSP_REQUEST, g_cmd_phys, type, true);
+#if (CONFIG_CPU_AFF_NR != 0)
+	struct cpumask old_mask;
+	set_cpu_strategy(&old_mask);
+#endif
+
+retry:
+	send_asm_smc_cmd(in_param, out_param);
+
+	if (out_param->exit_reason == SMC_EXIT_PREEMPTED
+		&& out_param->ret == TSP_RESPONSE) {
+#if (!defined(CONFIG_PREEMPT)) || defined(CONFIG_RTOS_PREEMPT_OFF)
+		cond_resched();
+#endif
+		in_param->x1 = SMC_OPS_SCHEDTO;
+		goto retry;
+	}
+#if (CONFIG_CPU_AFF_NR != 0)
+	restore_cpu(&old_mask);
+#endif
 }
 
 void send_smc_reset_cmd_buffer(void)
@@ -1879,7 +1898,11 @@ void send_smc_reset_cmd_buffer(void)
 static void smc_work_set_cmd_buffer(struct work_struct *work)
 {
 	(void)work;
-	smc_work_no_wait(TC_NS_CMD_TYPE_SECURE_CONFIG);
+	struct smc_in_params in_param = {TSP_REQUEST, g_cmd_phys, TC_NS_CMD_TYPE_SECURE_CONFIG,
+		g_cmd_phys >> ADDR_TRANS_NUM};
+	struct smc_out_params out_param = {0};
+
+	send_smc_cmd_with_retry(&in_param, &out_param);
 }
 
 void smc_set_cmd_buffer(void)
