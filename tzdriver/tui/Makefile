@@ -12,7 +12,7 @@ ifeq ($(CONFIG_TEE_TUI_MTK), y)
 EXTRA_CFLAGS += -Idrivers/tzdriver
 EXTRA_CFLAGS += -Idrivers/tzdriver/core
 
-EXTRA_CFLAGS += -I$(KERNEL_DIR)/../../../../third_party/bounds_checking_function/include
+EXTRA_CFLAGS += -I$(KERNEL_DIR)/bounds_checking_function/include
 EXTRA_CFLAGS += -Idrivers/gpu/drm/mediatek
 EXTRA_CFLAGS += -Idrivers/misc/mediatek/memory-ssmr
 EXTRA_CFLAGS += -Idrivers/devkit/lcdkit/lcdkit3.0/kernel/mtk/include
