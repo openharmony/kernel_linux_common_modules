@@ -1263,7 +1263,11 @@ static int tc_ns_client_init(void)
 	ret = load_tz_shared_mem(g_dev_node);
 	if (ret != 0)
 		goto unmap_res_mem;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	g_driver_class = class_create(THIS_MODULE, TC_NS_CLIENT_DEV);
+#else
+	g_driver_class = class_create(TC_NS_CLIENT_DEV);
+#endif
 	if (IS_ERR_OR_NULL(g_driver_class)) {
 		tloge("class create failed");
 		ret = -ENOMEM;

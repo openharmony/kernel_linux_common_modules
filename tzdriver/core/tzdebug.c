@@ -24,7 +24,12 @@
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/seq_file.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 #include <stdarg.h>
+#else
+#include <linux/stdarg.h>
+#endif
 #include <linux/mm.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>

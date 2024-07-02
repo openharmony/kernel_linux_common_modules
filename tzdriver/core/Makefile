@@ -4,7 +4,7 @@ ifneq ($(TARGET_BUILD_VARIANT), user)
 	ccflags-y += -DDEF_ENG
 endif
 
-EXTRA_CFLAGS += -I$(KERNEL_DIR)/../../../../third_party/bounds_checking_function/include
+EXTRA_CFLAGS += -I$(KERNEL_DIR)/bounds_checking_function/include
 EXTRA_CFLAGS += -I$(KERNEL_DIR)/drivers/tzdriver
 EXTRA_CFLAGS += -I$(KERNEL_DIR)/drivers/tzdriver/agent_rpmb/core
 EXTRA_CFLAGS += -I$(KERNEL_DIR)/drivers/tzdriver/auth
