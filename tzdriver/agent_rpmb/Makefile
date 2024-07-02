@@ -6,7 +6,7 @@ endif
 
 EXTRA_CFLAGS += -I$(KERNEL_DIR)/drivers/platform_drivers/tzdriver
 EXTRA_CFLAGS += -I$(KERNEL_DIR)/drivers/platform_drivers/tzdriver/core
-EXTRA_CFLAGS += -I$(KERNEL_DIR)/../../../../third_party/bounds_checking_function/include
+EXTRA_CFLAGS += -I$(KERNEL_DIR)/bounds_checking_function/include
 
 ifeq ($(CONFIG_MEDIATEK_SOLUTION),y)
 	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))

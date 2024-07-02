@@ -1030,16 +1030,19 @@ static int tlogger_chown(const char *file_path, uint32_t file_path_len)
 	uid_t user = ROOT_UID;
 	gid_t group = ROOT_GID;
 	int ret;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	mm_segment_t old_fs;
-
+#endif
 	get_log_chown(&user, &group);
 
 	/* not need modify chown attr */
 	if (group == ROOT_GID && user == ROOT_UID)
 		return 0;
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 #if (KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE)
 	ret = (int)ksys_chown((const char __user *)file_path, user, group);
 #else
@@ -1047,11 +1050,15 @@ static int tlogger_chown(const char *file_path, uint32_t file_path_len)
 #endif
 	if (ret != 0) {
 		tloge("sys chown for last teemsg file error\n");
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 		set_fs(old_fs);
+#endif
 		return -1;
 	}
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	set_fs(old_fs);
+#endif
 	return 0;
 }
 #endif
