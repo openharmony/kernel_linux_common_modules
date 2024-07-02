@@ -13,7 +13,12 @@
  */
 
 #include "dynamic_ion_mem.h"
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 #include <stdarg.h>
+#else
+#include <linux/stdarg.h>
+#endif
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
