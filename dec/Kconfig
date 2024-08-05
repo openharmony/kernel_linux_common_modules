@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2024 Huawei Device Co., Ltd.
+#
+config SECURITY_DEC
+	bool "Data enhance control features"
+
+	default y
+	help
+	  This option enables file operation permission verification
+	  at VFS layer.
+
+	  If unsure, say N.

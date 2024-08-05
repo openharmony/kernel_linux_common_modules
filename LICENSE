@@ -9,5 +9,6 @@
     ./container_escape_detection
     ./module_sample
     ./pac/
+    ./dec
 
 As for the specific use of the licenses,  please refer to the relevant description in the documents.
