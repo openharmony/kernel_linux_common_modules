@@ -39,6 +39,7 @@ struct ucollection_process_thread_count {
 
 struct ucollection_thread_cpu_item {
 	int tid;
+	char name[16]; // 16 : max length of thread name
 	unsigned long long cpu_usage_utime;
 	unsigned long long cpu_usage_stime;
 	unsigned long long cpu_load_time;

@@ -96,6 +96,7 @@ static void get_thread_load(struct task_struct *task, int cur_count,
 	do_div(utime, NS_TO_MS);
 	do_div(stime, NS_TO_MS);
 	thread_cpu_item.tid = task->pid;
+	strcpy(thread_cpu_item.name, task->comm);
 	thread_cpu_item.cpu_usage_utime = utime;
 	thread_cpu_item.cpu_usage_stime = stime;
 	thread_cpu_item.cpu_load_time = 0;
