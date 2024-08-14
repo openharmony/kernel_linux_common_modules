@@ -14,7 +14,8 @@
 #define SYSTEM_UID 1000
 
 #define SUPER_UID SYSTEM_UID
-#define super_uid(uid) (uid == ROOT_UID || uid == SYSTEM_UID)
+#define RESOURCE_SCHEDULE_SERVICE_UID 1096
+#define super_uid(uid) (uid == ROOT_UID || uid == SYSTEM_UID || uid == RESOURCE_SCHEDULE_SERVICE_UID)
 
 enum ioctl_abi_format_auth{
 	AUTH_IOCTL_ABI_ARM32,
