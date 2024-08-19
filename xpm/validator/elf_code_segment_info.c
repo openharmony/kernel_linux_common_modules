@@ -225,7 +225,7 @@ static int get_elf64_info(struct elfhdr *elf_ehdr, struct elf_info *elf_info)
 	return 0;
 }
 
-static int elf_check_and_get_code_segment_offset(struct file *file, struct elf_info *elf_info)
+static int elf_check_and_get_code_segment_offset(struct file *file, struct elf_info *elf_info, bool *skip)
 {
 	uint16_t type;
 	struct elfhdr *elf_ehdr = &elf_info->elf_ehdr;
@@ -235,8 +235,11 @@ static int elf_check_and_get_code_segment_offset(struct file *file, struct elf_i
 	if (ret < 0)
 		return ret;
 
-	if (memcmp(elf_ehdr->e_ident, ELFMAG, SELFMAG) != 0)
-		return -ENOEXEC;
+	if (memcmp(elf_ehdr->e_ident, ELFMAG, SELFMAG) != 0) {
+		// when the file is not an ELF file, skip checking
+		*skip = true;
+		return 0;
+	}
 
 	type = elf16_get_value(elf_ehdr, elf_ehdr->e_type);
 	if (type != ET_EXEC && type != ET_DYN)
@@ -287,16 +290,52 @@ static int find_elf_code_segment_info(const char *phdr_info, struct elf_info *el
 	return 0;
 }
 
+static int handle_skip_case(struct file *file, struct exec_file_signature_info **code_segment_info) {
+	struct exec_file_signature_info *tmp_info = NULL;
+	if (*code_segment_info == NULL) {
+		tmp_info = kzalloc(sizeof(struct exec_file_signature_info), GFP_KERNEL);
+		if (tmp_info == NULL) {
+			return -ENOMEM;
+		}
+	} else {
+		tmp_info = *code_segment_info;
+	}
+
+	if (tmp_info->code_segments == NULL) {
+		tmp_info->code_segments = kzalloc(sizeof(struct exec_segment_info), GFP_KERNEL);
+		if (tmp_info->code_segments == NULL) {
+			if (*code_segment_info == NULL) {
+				kfree(tmp_info);
+				tmp_info = NULL;
+			}
+			return -ENOMEM;
+		}
+		tmp_info->code_segment_count = 1;
+	}
+
+	tmp_info->code_segments[0].file_offset = 0;
+	tmp_info->code_segments[0].size = file_inode(file)->i_size;
+
+	if (*code_segment_info == NULL) {
+		*code_segment_info = tmp_info;
+	}
+	return 0;
+}
+
 int parse_elf_code_segment_info(struct file *file,
 	struct exec_file_signature_info **code_segment_info)
 {
 	const char *phdr_info;
 	struct elf_info elf_info = {0};
 	int ret;
-
-	ret = elf_check_and_get_code_segment_offset(file, &elf_info);
+	bool skip = false;
+	ret = elf_check_and_get_code_segment_offset(file, &elf_info, &skip);
 	if (ret < 0)
 		return ret;
+	
+	if (skip) {
+		return handle_skip_case(file, code_segment_info);
+	}
 
 	phdr_info = kzalloc(elf_info.e_phsize, GFP_KERNEL);
 	if (phdr_info == NULL)
