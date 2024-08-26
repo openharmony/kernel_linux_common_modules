@@ -24,10 +24,12 @@ static inline int check_code_sign_descriptor(const struct inode *inode,
 
 	if (!desc->cs_version)
 		return 0;
-
-	if (le64_to_cpu(desc->pgtypeinfo_off) > le64_to_cpu(desc->data_size) - le32_to_cpu(desc->pgtypeinfo_size)) {
+	
+	// when calc pgtypeinfo_size, trans bit size to byte size
+	u32 pgtypeinfo_size_bytes = le32_to_cpu(desc->pgtypeinfo_size) / 8;
+	if (le64_to_cpu(desc->pgtypeinfo_off) > le64_to_cpu(desc->data_size) - pgtypeinfo_size_bytes) {
 		code_sign_log_error("Wrong offset: %llu (pgtypeinfo_off) > %llu (data_size) - %u (pgtypeinfo_size)",
-				le64_to_cpu(desc->pgtypeinfo_off), le64_to_cpu(desc->data_size), le32_to_cpu(desc->pgtypeinfo_size));
+				le64_to_cpu(desc->pgtypeinfo_off), le64_to_cpu(desc->data_size), pgtypeinfo_size_bytes);
 		return -EINVAL;
 	}
 
@@ -70,8 +72,8 @@ void code_sign_before_measurement(void *_desc, int *ret)
 	struct code_sign_descriptor *desc = CAST_CODE_SIGN_DESC(_desc);
 
 	if (desc->cs_version == 1) {
-		desc->cs_version = 0;
 		*ret = desc->cs_version;
+		desc->cs_version = 0;
 	} else {
 		*ret = desc->cs_version;
 	}
