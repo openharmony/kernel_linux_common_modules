@@ -17,6 +17,7 @@
 #include "avc.h"
 #include "objsec.h"
 #include "hideaddr.h"
+#include <linux/version.h>
 
 static bool is_anon_exec(struct vm_area_struct *vma)
 {
@@ -44,8 +45,13 @@ static int hideaddr_avc_has_perm(u16 tclass, u32 requested, struct seq_file *m)
 	u32 secid;
 
 	security_cred_getsecid(task->cred, &secid);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	return avc_has_perm_noaudit(&selinux_state, secid, secid, tclass, requested,
 		AVC_STRICT, &avd);
+#else
+	return avc_has_perm_noaudit(secid, secid, tclass, requested,
+		AVC_STRICT, &avd);
+#endif
 }
 
 static void hideaddr_header_prefix(unsigned long *start, unsigned long *end,
