@@ -29,7 +29,7 @@ static inline void cred_info_record(struct cred_info *info, const struct cred *c
 	info->egid = cred->egid.val;
 	info->fsuid = cred->fsuid.val;
 
-	memcpy(&info->cap_effective.cap[0], &cred->cap_effective.cap[0], sizeof(info->cap_effective.cap));
+	memcpy(&info->cap_effective, &cred->cap_effective, sizeof(kernel_cap_t));
 }
 
 struct ns_info {
