@@ -11,6 +11,7 @@
 #include "jit_space_list.h"
 #include "avc.h"
 #include "objsec.h"
+#include <linux/version.h>
 
 DEFINE_SPINLOCK(list_lock);
 
@@ -25,8 +26,13 @@ static bool jit_avc_has_perm(u16 tclass, u32 requested, struct task_struct *task
 	u32 secid;
 	security_cred_getsecid(task->cred, &secid);
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	return (avc_has_perm_noaudit(&selinux_state, secid, secid, tclass, requested,
 		AVC_STRICT, &avd) == 0);
+#else
+	return (avc_has_perm_noaudit(secid, secid, tclass, requested,
+		AVC_STRICT, &avd) == 0);
+#endif
 }
 
 void find_jit_memory(struct task_struct *task, unsigned long start, unsigned long size, int *err)

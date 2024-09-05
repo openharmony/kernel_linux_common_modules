@@ -9,6 +9,7 @@
 #include "objsec.h"
 #include "ced_detection.h"
 #include "ced_detection_points.h"
+#include <linux/version.h>
 
 enum ced_event_type {
 	EVENT_OK,
@@ -40,13 +41,21 @@ static int ced_avc_has_perm(u16 tclass, u32 requested)
 	struct av_decision avd;
 	int rc;
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	if (!selinux_initialized(&selinux_state))
 		return 1;
-
+#else
+	if (!selinux_initialized())
+		return 1;
+#endif
 	u32 sid = current_sid();
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	rc = avc_has_perm_noaudit(&selinux_state, sid, sid, tclass, requested,
 		AVC_STRICT, &avd);
-
+#else
+	rc = avc_has_perm_noaudit(sid, sid, tclass, requested,
+		AVC_STRICT, &avd);
+#endif
 	return rc;
 }
 
