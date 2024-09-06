@@ -4,13 +4,21 @@
  */
 
 #include <asm/byteorder.h>
+#include <linux/version.h>
 #include <linux/fsverity.h>
 #include <linux/slab.h>
 
-#include "dsmm_developer.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+#include <linux/pagemap.h>
+#endif
+
 #include "code_sign_elf.h"
 #include "code_sign_log.h"
 #include "verify_cert_chain.h"
+
+#ifdef CONFIG_SECURITY_XPM
+#include "dsmm_developer.h"
+#endif
 
 #define SIGN_HEAD_SIZE (sizeof(sign_head_t))
 
@@ -197,12 +205,20 @@ out:
 
 int elf_file_enable_fs_verity(struct file *file)
 {
+#ifdef CONFIG_SECURITY_XPM
 	/* developer mode */
 	if (get_developer_mode_state() != STATE_ON) {
 		code_sign_log_info("developer mode off, elf not allowed to execute");
 		return -EINVAL;
 	}
+#else
+	code_sign_log_info("developer mode off, elf not allowed to execute");
+	return -EINVAL;
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	mm_segment_t fs;
+#endif
 	char *path_buf = kzalloc(PATH_MAX, GFP_KERNEL);
 	if (!path_buf) {
 		code_sign_log_error("alloc mem for path_buf failed");
@@ -245,10 +261,10 @@ int elf_file_enable_fs_verity(struct file *file)
 		err = -ENOMEM;
 		goto filp_close_out;
 	}
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
-
+#endif
 	ssize_t cnt = vfs_read(fp, sign_head_ptr, SIGN_HEAD_SIZE, &pos);
 	if (cnt != SIGN_HEAD_SIZE) {
 		code_sign_log_error("read sign head from file failed: return value %lu, expect %u bytes",
@@ -278,7 +294,9 @@ int elf_file_enable_fs_verity(struct file *file)
 
 release_sign_head_out:
 	kfree(sign_head_ptr);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	set_fs(fs);
+#endif
 filp_close_out:
 	filp_close(fp, NULL);
 release_path_buf_out:
