@@ -8,11 +8,12 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/compat.h>
+#include <linux/version.h>
 #include "avc.h"
 #include "objsec.h"
-#include "dsmm_developer.h"
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
+#define  MAX_SIGNING_LENGTH 2048
 
 DEFINE_SPINLOCK(cert_chain_tree_lock);
 struct rb_root cert_chain_tree = RB_ROOT;
@@ -71,8 +72,11 @@ int code_sign_check_caller(char *caller)
 	u32 sid = current_sid(), context_len;
 	char *context = NULL;
 	int rc;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	rc = security_sid_to_context(&selinux_state, sid, &context, &context_len);
+#else
+	rc = security_sid_to_context(sid, &context, &context_len);
+#endif
 	if (rc)
 		return -EINVAL;
 
@@ -180,11 +184,17 @@ int code_sign_avc_has_perm(u16 tclass, u32 requested)
 	struct av_decision avd;
 	u32 sid = current_sid();
 	int rc, rc2;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	rc = avc_has_perm_noaudit(&selinux_state, sid, sid, tclass, requested,
 		AVC_STRICT, &avd);
 	rc2 = avc_audit(&selinux_state, sid, sid, tclass, requested, &avd, rc,
 		NULL, AVC_STRICT);
+#else
+	rc = avc_has_perm_noaudit(sid, sid, tclass, requested,
+		AVC_STRICT, &avd);
+	rc2 = avc_audit(sid, sid, tclass, requested, &avd, rc,
+		NULL);
+#endif
 	if (rc2)
 		return rc2;
 
@@ -207,7 +217,8 @@ int parse_cert_source(unsigned long args, struct cert_source **_source)
 		goto copy_source_failed;
 	}
 
-	if (info.path_len > CERT_CHAIN_PATH_LEN_MAX || info.issuer_length == 0 || info.signing_length == 0) {
+	if (info.path_len > CERT_CHAIN_PATH_LEN_MAX || info.issuer_length == 0 || info.signing_length == 0 
+		|| info.issuer_length > MAX_SIGNING_LENGTH || info.signing_length > MAX_SIGNING_LENGTH) {
 		code_sign_log_error("invalid path len or subject or issuer");
 		ret = -EINVAL;
 		goto copy_source_failed;
@@ -288,10 +299,8 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 
 			if (ret == 1) {
 				// developer cert
-				if (get_developer_mode_state() == STATE_ON) {
-					code_sign_log_debug("add developer cert");
-					ret = cert_chain_insert(&dev_cert_chain_tree, source);
-				}
+				code_sign_log_debug("add developer cert");
+				ret = cert_chain_insert(&dev_cert_chain_tree, source);
 			} else {
 				code_sign_log_debug("add release cert");
 				ret = cert_chain_insert(&cert_chain_tree, source);
@@ -314,10 +323,8 @@ long code_sign_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
 
 			if (ret == 1) {
 				// developer cert
-				if (get_developer_mode_state() == STATE_ON) {
-					code_sign_log_debug("remove developer cert");
-					ret = cert_chain_remove(&dev_cert_chain_tree, source);
-				}
+				code_sign_log_debug("remove developer cert");
+				ret = cert_chain_remove(&dev_cert_chain_tree, source);
 			} else {
 				code_sign_log_debug("remove release cert");
 				ret = cert_chain_remove(&cert_chain_tree, source);
