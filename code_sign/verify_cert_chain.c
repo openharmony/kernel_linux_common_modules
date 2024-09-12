@@ -6,14 +6,18 @@
 #include <linux/cred.h>
 #include <linux/key.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 #include <linux/verification.h>
 #include <crypto/pkcs7.h>
 #include "objsec.h"
-#include "dsmm_developer.h"
 #include "code_sign_ext.h"
 #include "code_sign_ioctl.h"
 #include "code_sign_log.h"
 #include "verify_cert_chain.h"
+
+#ifdef CONFIG_SECURITY_XPM
+#include "dsmm_developer.h"
+#endif
 
 /*
  * Find the key (X.509 certificate) to use to verify a PKCS#7 message.  PKCS#7
@@ -144,11 +148,13 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len,
 
 	bool is_dev_mode = false;
 
+#ifdef CONFIG_SECURITY_XPM
 	// developer mode && developer proc
 	if (get_developer_mode_state() == STATE_ON) {
 		code_sign_log_info("developer mode on");
 		is_dev_mode = true;
 	}
+#endif
 
 	for (sinfo = pkcs7->signed_infos; sinfo; sinfo = sinfo->next) {
 		/* Find the key for the signature if there is one */
