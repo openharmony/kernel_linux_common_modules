@@ -5,6 +5,7 @@
 
 #include <linux/mman.h>
 #include <linux/mm_types.h>
+#include <linux/version.h>
 
 #include "avc.h"
 #include "objsec.h"
@@ -182,8 +183,13 @@ static int xpm_avc_has_perm(u16 tclass, u32 requested)
 	struct av_decision avd;
 	u32 sid = current_sid();
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	return avc_has_perm_noaudit(&selinux_state, sid, sid, tclass, requested,
 		AVC_STRICT, &avd);
+#else
+	return avc_has_perm_noaudit(sid, sid, tclass, requested,
+		AVC_STRICT, &avd);
+#endif
 }
 
 static int xpm_validate_signature(struct vm_area_struct *vma,
@@ -361,7 +367,7 @@ static int xpm_mprotect_check(struct vm_area_struct *vma,
 	return xpm_common_check(vma, prot);
 }
 
-static struct security_hook_list xpm_hooks[] __lsm_ro_after_init = {
+static struct security_hook_list xpm_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(mmap_region, xpm_mmap_check),
 	LSM_HOOK_INIT(file_mprotect, xpm_mprotect_check),
 };
