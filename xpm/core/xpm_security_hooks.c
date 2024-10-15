@@ -309,14 +309,21 @@ static int xpm_check_prot(struct vm_area_struct *vma, unsigned long prot)
 
 	/* check for xpm region vma prot */
 	if (vma->vm_flags & VM_XPM) {
-		if (is_anon || (prot & PROT_EXEC)) {
-			xpm_log_error("xpm region mmap not allow anonymous or exec permission");
+		if (is_anon) {
+			vma->vm_flags &= ~VM_XPM;
+			goto next_check;
+		}
+
+		if ((prot & PROT_WRITE) || (prot & PROT_EXEC)) {
+			xpm_log_error("xpm region mmap not allow write or exec permission");
+			report_mmap_event("xpm_check", TYPE_ABC, vma,  prot);
 			return -EPERM;
 		}
 
 		return 0;
 	}
 
+next_check:
 	/* check for anonymous vma prot, anonymous executable permission need
 	 * controled by selinux
 	 */
