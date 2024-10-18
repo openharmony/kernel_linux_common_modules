@@ -486,13 +486,15 @@ static void insert_new_signature_info(struct inode *file_node, int type,
 	RB_CLEAR_NODE(&new_info->rb_node);
 	if ((*old_info) != NULL) {
 		write_lock(verity->lock);
-		rb_erase_node(verity->root, verity->node_count, *old_info);
-		(*old_info)->type |= FILE_SIGNATURE_DELETE;
-		write_unlock(verity->lock);
-		if (atomic_sub_return(1, &(*old_info)->reference) <= 0) {
-			kfree(*old_info);
-			*old_info = NULL;
+		if ((*old_info) != NULL) {
+			if (atomic_sub_return(1, &(*old_info)->reference) <= 0) {
+				rb_erase_node(verity->root, verity->node_count, *old_info);
+				(*old_info)->type |= FILE_SIGNATURE_DELETE;
+				kfree(*old_info);
+				*old_info = NULL;
+			}
 		}
+		write_unlock(verity->lock);
 	}
 
 	write_lock(verity->lock);
