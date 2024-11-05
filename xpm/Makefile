@@ -14,7 +14,8 @@ obj-$(CONFIG_SECURITY_XPM) += \
 	core/xpm_report.o \
 	validator/elf_code_segment_info.o \
 	validator/exec_signature_info.o \
-	developer/dsmm_developer.o
+	developer/dsmm_developer.o \
+	secureshield/dsmm_secureshield.o
 
 obj-$(CONFIG_SECURITY_XPM_DEBUG) += \
 	core/xpm_debugfs.o
@@ -23,6 +24,7 @@ ccflags-$(CONFIG_SECURITY_XPM) += \
 	-I$(srctree)/security/xpm/core \
 	-I$(srctree)/security/xpm/validator \
 	-I$(srctree)/security/xpm/developer \
+	-I$(srctree)/security/xpm/secureshield \
 	-I$(srctree)/security/selinux/include \
 	-I$(srctree)/security/selinux \
 	-I$(srctree)/fs \
