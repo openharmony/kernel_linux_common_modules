@@ -12,6 +12,7 @@
 #include "exec_signature_info.h"
 #include "fsverity_private.h"
 #include "code_sign_ext.h"
+#include "dsmm_secureshield.h"
 #include "xpm_common.h"
 #include "xpm_debugfs.h"
 #include "xpm_log.h"
@@ -319,15 +320,22 @@ static int xpm_check_prot(struct vm_area_struct *vma, unsigned long prot)
 
 	/* check for anonymous vma prot, anonymous executable permission need
 	 * controled by selinux
+	 * in secure shield mode, all anon + x is forbidden
+	 * in default mode, temporarily allow anon + x allocation
 	 */
-	if (is_anon && (prot & PROT_EXEC)) {
-		ret = xpm_avc_has_perm(SECCLASS_XPM, XPM__EXEC_ANON_MEM);
-		if (ret) {
-			report_mmap_event(ANON_EXEC, TYPE_ANON, vma,  prot);
-			return -EPERM;
+	if (vma_is_anonymous(vma) && (prot & PROT_EXEC)) {
+		if (dsmm_is_secureshield_enabled()) {
+			ret = -EPERM;
+			report_mmap_event(ANON_EXEC, TYPE_ANON, vma, prot);
+		} else {
+			ret = xpm_avc_has_perm(SECCLASS_XPM, XPM__EXEC_ANON_MEM);
+			if (ret) {
+				ret = 0;
+				report_mmap_event(ANON_EXEC, TYPE_ANON, vma, prot);
+			}
 		}
 
-		return 0;
+		return ret;
 	}
 
 	/* check for non-anonymous vma prot */
