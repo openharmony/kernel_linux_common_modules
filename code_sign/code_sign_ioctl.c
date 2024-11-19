@@ -213,7 +213,7 @@ int parse_cert_source(unsigned long args, struct cert_source **_source)
 		goto copy_source_failed;
 	}
 
-	source->subject = kzalloc(info.signing_length, GFP_KERNEL);
+	source->subject = kzalloc(info.signing_length + 1, GFP_KERNEL);
 	if (!source->subject) {
 		ret = -ENOMEM;
 		goto copy_source_failed;
@@ -225,7 +225,7 @@ int parse_cert_source(unsigned long args, struct cert_source **_source)
 		goto copy_subject_failed;
 	}
 
-	source->issuer = kzalloc(info.issuer_length, GFP_KERNEL);
+	source->issuer = kzalloc(info.issuer_length + 1, GFP_KERNEL);
 	if (!source->issuer) {
 		ret = -ENOMEM;
 		goto copy_subject_failed;
