@@ -122,7 +122,7 @@ static struct cert_source *find_matched_source(const struct x509_certificate *si
 }
 
 void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len,
-	struct cs_info *cs_info, int *ret)
+	struct fsverity_info *vi, int *ret)
 {
 	struct pkcs7_message *pkcs7;
 	struct pkcs7_signed_info *sinfo;
@@ -205,7 +205,7 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len,
 		}
 		if (cert_chain_depth_without_root == (source->max_path_depth - 1)) {
 			code_sign_log_info("cert subject and issuer trusted");
-			set_file_ownerid(cs_info, source->path_type, pkcs7->signed_infos);
+			set_file_ownerid(&vi->fcs_info, source->path_type, pkcs7->signed_infos);
 			*ret = source->path_type;
 			goto exit;
 		} else {
