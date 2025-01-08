@@ -9,6 +9,7 @@ obj-$(CONFIG_SECURITY_CODE_SIGN)	+= \
 	code_sign_ext.o
 
 ccflags-$(CONFIG_SECURITY_CODE_SIGN) += \
+	-I$(srctree)/fs/verity \
 	-I$(srctree)/fs/code_sign \
 	-I$(srctree)/security/selinux/include \
 	-I$(srctree)/security/selinux \
