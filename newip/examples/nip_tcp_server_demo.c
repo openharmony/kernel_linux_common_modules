@@ -22,14 +22,15 @@
 #include "nip_lib.h"
 #include "newip_route.h"
 
-void *recv_send(void *args)
+static void *recv_send(void *args)
 {
-	int cfd, ret;
+	int cfd;
+	ssize_t ret;
 	char buf[BUFLEN] = {0};
 
 	memcpy(&cfd, args, sizeof(int));
 	for (int i = 0; i < PKTCNT; i++) {
-		int recv_num = recv(cfd, buf, PKTLEN, MSG_WAITALL);
+		ssize_t recv_num = recv(cfd, buf, PKTLEN, MSG_WAITALL);
 
 		if (recv_num < 0) {
 			perror("recv");
@@ -37,13 +38,13 @@ void *recv_send(void *args)
 		} else if (recv_num == 0) { /* no data */
 			;
 		} else {
-			printf("Received -- %s --:%d\n", buf, recv_num);
+			printf("Received -- %s --:%zd\n", buf, recv_num);
 			ret = send(cfd, buf, recv_num, 0);
 			if (ret < 0) {
 				perror("send");
 				goto END;
 			}
-			printf("Sending  -- %s --:%d\n", buf, recv_num);
+			printf("Sending  -- %s --:%zd\n", buf, recv_num);
 		}
 	}
 END:	close(cfd);

@@ -26,7 +26,7 @@
  * ioctl(fd, SIOGIFINDEX, &ifr);
  * ifr.ifr_ifindex; ===> ifindex
  */
-int nip_route_add(int ifindex, const struct nip_addr *dst_addr,
+static int nip_route_add(int ifindex, const struct nip_addr *dst_addr,
 		  const struct nip_addr *gateway_addr, __u8 gateway_flag, int opt)
 {
 	int fd, ret;
@@ -46,7 +46,7 @@ int nip_route_add(int ifindex, const struct nip_addr *dst_addr,
 		rt.rtmsg_flags |= RTF_GATEWAY;
 	}
 
-	ret = ioctl(fd, opt, &rt);
+	ret = ioctl(fd, (unsigned long)opt, &rt);
 	if (ret < 0 && errno != EEXIST) { // ignore File Exists error
 		close(fd);
 		return -1;
@@ -56,7 +56,7 @@ int nip_route_add(int ifindex, const struct nip_addr *dst_addr,
 	return 0;
 }
 
-void cmd_help(void)
+static void cmd_help(void)
 {
 	/* nip_route add 02   wlan0
 	 * (配置目的地址02设备路由，出口是wlan0)
@@ -70,9 +70,9 @@ void cmd_help(void)
 	printf("nip_route { add | del } <dst-addr> <netcard-name> <gateway-addr>\n");
 }
 
-int parse_name(char **argv, int *ifindex, char *dev)
+static int parse_name(char **argv, int *ifindex, char *dev)
 {
-	int len = strlen(*argv);
+	size_t len = strlen(*argv);
 
 	memset(dev, 0, ARRAY_LEN);
 	if (len >= (ARRAY_LEN - 1) || !len)
@@ -88,9 +88,9 @@ int parse_name(char **argv, int *ifindex, char *dev)
 	return nip_get_ifindex(dev, ifindex);
 }
 
-int parse_cmd(char **argv, int *opt)
+static int parse_cmd(char **argv, int *opt)
 {
-	int len = strlen(*argv);
+	size_t len = strlen(*argv);
 	char cmd[ARRAY_LEN];
 
 	memset(cmd, 0, ARRAY_LEN);
@@ -111,7 +111,7 @@ int parse_cmd(char **argv, int *opt)
 	return 0;
 }
 
-int parse_args(char **argv, int *opt, __u8 *gateway_flag, int *ifindex,
+static int parse_args(char **argv, int *opt, __u8 *gateway_flag, int *ifindex,
 	       struct nip_addr *dst_addr, struct nip_addr *gateway_addr, char *dev, int argc)
 {
 	/* 配置参数1解析: { add | del } */

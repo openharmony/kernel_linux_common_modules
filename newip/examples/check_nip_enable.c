@@ -19,7 +19,7 @@
 
 int g_nip_enable = NIP_ENABLE_INVALID;
 
-void _check_nip_enable(void)
+static void _check_nip_enable(void)
 {
 	char tmp[NIP_DISABLE_LENTH];
 	FILE *fn = fopen(NIP_DISABLE_PATH, "r");
@@ -42,7 +42,7 @@ void _check_nip_enable(void)
 	g_nip_enable = atoi(tmp) ? 0 : 1;
 }
 
-int check_nip_enable(void)
+static int check_nip_enable(void)
 {
 	if (g_nip_enable == NIP_ENABLE_INVALID) {
 		_check_nip_enable();

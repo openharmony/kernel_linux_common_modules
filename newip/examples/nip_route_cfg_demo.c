@@ -27,7 +27,7 @@
  * ioctl(fd, SIOGIFINDEX, &ifr);
  * ifr.ifr_ifindex; ===> ifindex
  */
-int nip_route_add(int ifindex, const unsigned char *dst_addr, uint8_t dst_addr_len,
+static int nip_route_add(int ifindex, const unsigned char *dst_addr, uint8_t dst_addr_len,
 	const unsigned char *gateway_addr, uint8_t gateway_addr_len)
 {
 	int fd, ret;

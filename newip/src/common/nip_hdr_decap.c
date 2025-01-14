@@ -285,7 +285,7 @@ int nip_hdr_parse(unsigned char *rcv_buf, unsigned int buf_len, struct nip_hdr_d
 	if (buf_len < nbuf.remaining_len)
 		return -NIP_HDR_RCV_BUF_READ_OUT_RANGE;
 
-	niph->hdr_real_len = buf_len - nbuf.remaining_len;
+	niph->hdr_real_len = (unsigned char)(buf_len - nbuf.remaining_len);
 	ret = nip_hdr_check(niph);
 	if (ret < 0)
 		return ret;
