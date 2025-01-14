@@ -53,7 +53,7 @@ static inline void _nip_hdr_len_encap(struct nip_hdr_encap *head)
 
 static inline void _nip_update_hdr_len(struct nip_hdr_encap *head)
 {
-	*head->hdr_len_pos = head->hdr_buf_pos;
+	*head->hdr_len_pos = (unsigned char)head->hdr_buf_pos;
 }
 
 static inline void _nip_hdr_nexthdr_encap(struct nip_hdr_encap *head)

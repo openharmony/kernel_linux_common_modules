@@ -46,7 +46,7 @@ int32_t nip_get_ifindex(const char *ifname, int *ifindex)
 	return 0;
 }
 
-int nip_addr_fmt(char *addr_str, struct nip_addr *sap, int addrlen_input)
+static int nip_addr_fmt(unsigned char *addr_str, struct nip_addr *sap, int addrlen_input)
 {
 	unsigned char first_byte;
 	int addrlen, i;
@@ -93,7 +93,7 @@ int nip_addr_fmt(char *addr_str, struct nip_addr *sap, int addrlen_input)
 		return 1;
 	}
 
-	sap->bitlen = addrlen * NIP_ADDR_LEN_8;
+	sap->bitlen = (unsigned char)(addrlen * NIP_ADDR_LEN_8);
 	printf("*************************************************\n");
 	printf("Newip addr len=%d\n", addrlen);
 	for (i = 0; i < addrlen; i++) {
@@ -108,7 +108,7 @@ int nip_addr_fmt(char *addr_str, struct nip_addr *sap, int addrlen_input)
 
 int nip_get_addr(char **args, struct nip_addr *addr)
 {
-	unsigned int len;
+	size_t len;
 	char *sp = *args;
 	int addrlen_input = 0;
 	__u8 addr_str[INDEX_MAX] = {0};

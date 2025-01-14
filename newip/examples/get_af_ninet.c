@@ -18,7 +18,7 @@
 
 int g_af_ninet;
 
-void _get_af_ninet(void)
+static void _get_af_ninet(void)
 {
 	char tmp[AF_NINET_LENTH];
 	FILE *fn = fopen(AF_NINET_PATH, "r");
@@ -41,7 +41,7 @@ void _get_af_ninet(void)
 	g_af_ninet = atoi(tmp);
 }
 
-int get_af_ninet(void)
+static int get_af_ninet(void)
 {
 	if (g_af_ninet == 0)
 		_get_af_ninet();

@@ -343,7 +343,7 @@ found:
 	return sk;
 }
 
-static inline int nip_tcp_compute_score(struct sock *sk, struct net *net,
+static int nip_tcp_compute_score(struct sock *sk, struct net *net,
 					const unsigned short hnum,
 					const struct nip_addr *daddr,
 					const int dif, int sdif)

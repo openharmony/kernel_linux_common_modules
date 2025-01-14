@@ -14,7 +14,7 @@
 
 #define USHORT_PAYLOAD 16
 #define NIP_CHECKSUM_UINT8_PAYLOAD 8
-unsigned int _nip_check_sum(const unsigned char *data, unsigned short data_len)
+static unsigned int _nip_check_sum(const unsigned char *data, unsigned short data_len)
 {
 	unsigned int i = 0;
 	unsigned int sum = 0;
@@ -30,10 +30,10 @@ unsigned int _nip_check_sum(const unsigned char *data, unsigned short data_len)
 	return sum;
 }
 
-unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
+static unsigned int _nip_header_chksum(struct nip_pseudo_header *chksum_header)
 {
 	int i, j;
-	int addr_len;
+	unsigned short addr_len;
 	unsigned char pseudo_header[NIP_HDR_MAX] = {0};
 	unsigned short hdr_len = 0;
 

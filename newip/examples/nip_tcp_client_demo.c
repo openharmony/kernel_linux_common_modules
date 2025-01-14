@@ -24,7 +24,7 @@
 #include <sched.h>
 #include <pthread.h>
 
-int _send(int cfd, int pkt_num)
+static int _send(int cfd, int pkt_num)
 {
 	char buf[BUFLEN] = {0};
 	struct timeval sys_time;
@@ -44,7 +44,7 @@ int _send(int cfd, int pkt_num)
 	return 0;
 }
 
-int _recv(int cfd, int pkt_num, int *success)
+static int _recv(int cfd, int pkt_num, int *success)
 {
 	char buf[BUFLEN] = {0};
 	fd_set readfds;
@@ -61,7 +61,7 @@ int _recv(int cfd, int pkt_num, int *success)
 	}
 
 	if (FD_ISSET(cfd, &readfds)) {
-		int ret;
+		ssize_t ret;
 		int no = 0;
 
 		ret = recv(cfd, buf, PKTLEN, MSG_WAITALL);
@@ -75,7 +75,7 @@ int _recv(int cfd, int pkt_num, int *success)
 			printf("Received --%s sock %d success:%6d/%6d/no=%6d\n",
 			       buf, cfd, *success, pkt_num + 1, no);
 		} else {
-			printf("recv fail, ret=%d\n", ret);
+			printf("recv fail, ret=%zd\n", ret);
 			return -1;
 		}
 	}
@@ -83,7 +83,7 @@ int _recv(int cfd, int pkt_num, int *success)
 	return 0;
 }
 
-void *send_recv(void *args)
+static void *send_recv(void *args)
 {
 	int cfd = ((struct thread_args *)args)->cfd;
 	int success = 0;

@@ -24,7 +24,7 @@
  * ioctl(fd, SIOGIFINDEX, &ifr);
  * ifr.ifr_ifindex; ===> ifindex
  */
-int nip_add_addr(int ifindex, const struct nip_addr *addr, int opt)
+static int nip_add_addr(int ifindex, const struct nip_addr *addr, int opt)
 {
 	int fd, ret;
 	struct nip_ifreq ifrn;
@@ -37,7 +37,7 @@ int nip_add_addr(int ifindex, const struct nip_addr *addr, int opt)
 	ifrn.ifrn_addr = *addr;
 	ifrn.ifrn_ifindex = ifindex;
 
-	ret = ioctl(fd, opt, &ifrn);
+	ret = ioctl(fd, (unsigned long)opt, &ifrn);
 	if (ret < 0 && errno != EEXIST) { // ignore File Exists error
 		printf("cfg newip addr fail, ifindex=%d, opt=%d, ret=%d.\n", ifindex, opt, ret);
 		close(fd);
@@ -48,16 +48,16 @@ int nip_add_addr(int ifindex, const struct nip_addr *addr, int opt)
 	return 0;
 }
 
-void cmd_help(void)
+static void cmd_help(void)
 {
 	/* nip_addr wlan0 add 01 (在wlan0上配置地址01) */
 	/* nip_addr wlan0 del 01 (在wlan0上删除地址01) */
 	printf("[cmd example] nip_addr <netcard-name> { add | del } <addr>\n");
 }
 
-int parse_name(char **argv, int *ifindex, char *dev)
+static int parse_name(char **argv, int *ifindex, char *dev)
 {
-	int len = strlen(*argv);
+	size_t len = strlen(*argv);
 
 	memset(dev, 0, ARRAY_LEN);
 	if (!len || len >= (ARRAY_LEN - 1))
@@ -73,10 +73,10 @@ int parse_name(char **argv, int *ifindex, char *dev)
 	return nip_get_ifindex(dev, ifindex);
 }
 
-int parse_cmd(char **argv, int *opt)
+static int parse_cmd(char **argv, int *opt)
 {
 	char cmd[ARRAY_LEN];
-	int len = strlen(*argv);
+	size_t len = strlen(*argv);
 
 	memset(cmd, 0, ARRAY_LEN);
 	if (!len || len >= (ARRAY_LEN - 1))
