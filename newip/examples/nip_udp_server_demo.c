@@ -24,10 +24,11 @@
 #include "nip_lib.h"
 #include "newip_route.h"
 
-void *recv_send(void *args)
+static void *recv_send(void *args)
 {
 	char buf[BUFLEN] = {0};
-	int fd, ret, recv_num;
+	int fd;
+	ssize_t recv_num, ret;
 	int count = 0;
 	socklen_t slen;
 	struct sockaddr_nin si_remote;
@@ -39,7 +40,7 @@ void *recv_send(void *args)
 		memset(&si_remote, 0, sizeof(si_remote));
 		recv_num = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&si_remote, &slen);
 		if (recv_num < 0) {
-			printf("server recvfrom fail, ret=%d\n", ret);
+			printf("server recvfrom fail, recv_num=%zd\n", recv_num);
 			goto END;
 		} else if (recv_num == 0) { /* no data */
 			;
@@ -49,7 +50,7 @@ void *recv_send(void *args)
 			slen = sizeof(si_remote);
 			ret = sendto(fd, buf, BUFLEN, 0, (struct sockaddr *)&si_remote, slen);
 			if (ret < 0) {
-				printf("server sendto fail, ret=%d\n", ret);
+				printf("server sendto fail, ret=%zd\n", ret);
 				goto END;
 			}
 			printf("Sending  -- %s -- to 0x%0x:%d\n", buf,

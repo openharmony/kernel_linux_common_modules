@@ -23,7 +23,7 @@
 #include "nip_lib.h"
 #include "newip_route.h"
 
-int _sendto(int cfd, struct sockaddr_nin *si_server, int pkt_num)
+static int _sendto(int cfd, struct sockaddr_nin *si_server, int pkt_num)
 {
 	char buf[BUFLEN] = {0};
 	struct timeval sys_time;
@@ -44,7 +44,7 @@ int _sendto(int cfd, struct sockaddr_nin *si_server, int pkt_num)
 	return 0;
 }
 
-int _recvfrom(int cfd, struct sockaddr_nin *si_server, int pkt_num, int *success)
+static int _recvfrom(int cfd, struct sockaddr_nin *si_server, int pkt_num, int *success)
 {
 	char buf[BUFLEN] = {0};
 	fd_set readfds;
@@ -62,7 +62,7 @@ int _recvfrom(int cfd, struct sockaddr_nin *si_server, int pkt_num, int *success
 	}
 
 	if (FD_ISSET(cfd, &readfds)) {
-		int ret;
+		ssize_t ret;
 		int no = 0;
 
 		ret = recvfrom(cfd, buf, BUFLEN, 0, (struct sockaddr *)si_server, &slen);
@@ -73,7 +73,7 @@ int _recvfrom(int cfd, struct sockaddr_nin *si_server, int pkt_num, int *success
 				printf("Received --%s sock %d success:%6d/%6d/no=%6d\n",
 				       buf, cfd, *success, pkt_num + 1, no);
 		} else {
-			printf("client recvfrom fail, ret=%d\n", ret);
+			printf("client recvfrom fail, ret=%zd\n", ret);
 			return -1;
 		}
 	}
@@ -81,7 +81,7 @@ int _recvfrom(int cfd, struct sockaddr_nin *si_server, int pkt_num, int *success
 	return 0;
 }
 
-void *send_recv(void *args)
+static void *send_recv(void *args)
 {
 	int success = 0;
 	int cfd = ((struct thread_args *)args)->cfd;
