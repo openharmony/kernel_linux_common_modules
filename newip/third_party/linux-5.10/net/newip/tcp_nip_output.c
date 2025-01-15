@@ -79,7 +79,7 @@ static bool tcp_nip_write_xmit(struct sock *sk, unsigned int mss_now, int nonagl
 			       int push_one, gfp_t gfp);
 
 /* Calculate MSS not accounting any TCP options.  */
-static inline int __tcp_nip_mtu_to_mss(struct sock *sk, int pmtu)
+static int __tcp_nip_mtu_to_mss(struct sock *sk, int pmtu)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
 	const struct inet_connection_sock *icsk = inet_csk(sk);

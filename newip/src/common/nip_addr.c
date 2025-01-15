@@ -424,7 +424,7 @@ unsigned char *decode_nip_addr(struct nip_buff *nbuf, struct nip_addr *addr)
 		addr->NIP_ADDR_FIELD8[i] = *nbuf->data;
 		nip_buff_pull(nbuf, sizeof(unsigned char));
 	}
-	addr->bitlen = addr_len * NIP_ADDR_BIT_LEN_8;
+	addr->bitlen = (unsigned char)(addr_len * NIP_ADDR_BIT_LEN_8);
 
 	ret = nip_addr_invalid(addr);
 	if (ret)

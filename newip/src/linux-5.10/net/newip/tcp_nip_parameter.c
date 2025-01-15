@@ -171,7 +171,7 @@ int get_dup_ack_snd_max(void)
 /*                            RTT timestamp parameters                                       */
 /*********************************************************************************************/
 int g_rtt_tstamp_rto_up = 100;  // rtt_tstamp >= 100  ==> shorten rto
-module_param_named(rtt_tstamp_rto_up, g_rtt_tstamp_rto_up, int,  0644);
+module_param_named(rtt_tstamp_rto_up, g_rtt_tstamp_rto_up, int, 0644);
 
 int get_rtt_tstamp_rto_up(void)
 {
@@ -179,7 +179,7 @@ int get_rtt_tstamp_rto_up(void)
 }
 
 int g_rtt_tstamp_high = 30;     // rtt_tstamp >= 30  ==> ssthresh = 100K
-module_param_named(rtt_tstamp_high, g_rtt_tstamp_high, int,  0644);
+module_param_named(rtt_tstamp_high, g_rtt_tstamp_high, int, 0644);
 
 int get_rtt_tstamp_high(void)
 {
@@ -187,7 +187,7 @@ int get_rtt_tstamp_high(void)
 }
 
 int g_rtt_tstamp_mid_high = 20; // rtt_tstamp >= 20  ==> ssthresh = 250K
-module_param_named(rtt_tstamp_mid_high, g_rtt_tstamp_mid_high, int,  0644);
+module_param_named(rtt_tstamp_mid_high, g_rtt_tstamp_mid_high, int, 0644);
 
 int get_rtt_tstamp_mid_high(void)
 {
@@ -198,7 +198,7 @@ int get_rtt_tstamp_mid_high(void)
  * rtt_tstamp <  10  ==> ssthresh = 1.5M
  */
 int g_rtt_tstamp_mid_low = 10;
-module_param_named(rtt_tstamp_mid_low, g_rtt_tstamp_mid_low, int,  0644);
+module_param_named(rtt_tstamp_mid_low, g_rtt_tstamp_mid_low, int, 0644);
 
 int get_rtt_tstamp_mid_low(void)
 {
@@ -206,7 +206,7 @@ int get_rtt_tstamp_mid_low(void)
 }
 
 int g_ack_to_nxt_snd_tstamp = 500;
-module_param_named(ack_to_nxt_snd_tstamp, g_ack_to_nxt_snd_tstamp, int,  0644);
+module_param_named(ack_to_nxt_snd_tstamp, g_ack_to_nxt_snd_tstamp, int, 0644);
 
 int get_ack_to_nxt_snd_tstamp(void)
 {
@@ -359,7 +359,7 @@ bool get_nip_debug(void)
 
 /* Debugging of threshold change */
 bool g_rtt_ssthresh_debug;
-module_param_named(rtt_ssthresh_debug, g_rtt_ssthresh_debug, bool,  0644);
+module_param_named(rtt_ssthresh_debug, g_rtt_ssthresh_debug, bool, 0644);
 
 bool get_rtt_ssthresh_debug(void)
 {
@@ -368,7 +368,7 @@ bool get_rtt_ssthresh_debug(void)
 
 /* Debugging of packet retransmission after ACK */
 bool g_ack_retrans_debug;
-module_param_named(ack_retrans_debug, g_ack_retrans_debug, bool,  0644);
+module_param_named(ack_retrans_debug, g_ack_retrans_debug, bool, 0644);
 
 bool get_ack_retrans_debug(void)
 {

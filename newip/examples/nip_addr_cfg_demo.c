@@ -24,7 +24,7 @@
  * ioctl(fd, SIOGIFINDEX, &ifr);
  * ifr.ifr_ifindex; ===> ifindex
  */
-int nip_add_addr(int ifindex, const unsigned char *addr, unsigned char addr_len)
+static int nip_add_addr(int ifindex, const unsigned char *addr, unsigned char addr_len)
 {
 	int fd, ret;
 	struct nip_ifreq ifrn;
