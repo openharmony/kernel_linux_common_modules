@@ -256,6 +256,12 @@ int qos_apply(struct qos_ctrl_data *data)
 
 	qts = (struct qos_task_struct *) &p->qts;
 
+	if (rt_task(p) && qts->in_qos == NO_QOS) {
+		pr_err("[QOS_CTRL] can not apply qos for native rt task\n");
+		ret = -ALREADY_RT_TASK;
+		goto out_unlock;
+	}
+
 	/* effective qos must in range [NO_QOS, NR_QOS) */
 	if (qts->in_qos != NO_QOS) {
 		if (qts->in_qos == level) {
