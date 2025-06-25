@@ -56,12 +56,7 @@ void check_jit_memory(struct task_struct *task, unsigned long cookie, unsigned l
 		return;
 	unsigned long start = *err;
 
-	if (prot & PROT_EXEC) {
-		jit_memory_log_info("can not apply prot_exec");
-		*err = -EACCES;
-		vm_munmap(start, size);
-		return;
-	}
+    // check for apply EXEC mem has been removed here
 	if (!(flag & MAP_JIT))
 		return;
 
