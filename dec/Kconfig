@@ -4,9 +4,21 @@
 config SECURITY_DEC
 	bool "Data enhance control features"
 
+	depends on SECURITY_PATH
 	default y
 	help
 	  This option enables file operation permission verification
 	  at VFS layer.
 
 	  If unsure, say N.
+
+config SECURITY_DEC_DEVELOP
+	bool "Enable Data enhance control develop mode"
+
+	depends on SECURITY_DEC
+	default y
+	help
+	  This option controls the operating mode of Data Enhance Control:
+	  - If enabled (Y): DEC runs in DEVELOP mode.
+	  - If disabled (N): DEC runs in PRODUCT mode, which enforces strict
+			permission checks and log desensitization
