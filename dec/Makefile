@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Huawei Device Co., Ltd.
 #
 obj-$(CONFIG_SECURITY_DEC)	+= \
-	dec_misc.o
+	dec_constraint_tree.o dec_kernel_interface.o dec_misc.o dec_path_tree.o dec_security_hook.o dec_utils.o sysctl.o
 
 ccflags-$(CONFIG_SECURITY_DEC) += \
 	-I$(srctree)/fs/dec 
