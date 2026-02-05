@@ -85,7 +85,7 @@ int dec_rule_query(struct path_tree_params *params)
 
     /* Perform actual permission check against path tree */
     if (!dec_path_tree_query(tokenid, path, mode, is_persist)) {
-        ret = -EACCES;
+        ret = -EPERM;
     }
 
     if (ret) {
