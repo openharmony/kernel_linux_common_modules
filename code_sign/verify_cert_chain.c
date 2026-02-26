@@ -195,6 +195,9 @@ void code_sign_verify_certchain(const void *raw_pkcs7, size_t pkcs7_len,
 					break;
 				}
 				cert_chain_depth_without_root++;
+				if (cert_chain_depth_without_root > (source->max_path_depth - 1)) {
+ 	 				break;
+ 	 			}
 				// search again for current issuer's issuer
 				issuer = cert->issuer;
 				cert = pkcs7->certs;
