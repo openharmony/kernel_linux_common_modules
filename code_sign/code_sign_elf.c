@@ -224,6 +224,7 @@ int elf_file_enable_fs_verity(struct file *file)
 		code_sign_log_error("alloc mem for path_buf failed");
 		return -ENOMEM;
 	}
+	struct inode *original_inode = file_inode(file);
 	int err = 0;
 	char *real_path = file_path(file, path_buf, PATH_MAX - 1);
 	if (IS_ERR_OR_NULL(real_path)) {
@@ -242,7 +243,12 @@ int elf_file_enable_fs_verity(struct file *file)
 	if (!inode) {
 		code_sign_log_error("file_inode failed");
 		err = -EFAULT;
-		goto filp_close_out;;
+		goto filp_close_out;
+	}
+	if (!original_inode || inode->i_ino != original_inode->i_ino || inode->i_sb != original_inode->i_sb) {
+		code_sign_log_error("file_inode is inconsistent");
+		err = -EFAULT;
+		goto filp_close_out;
 	}
 
 	long long fsize = inode->i_size;
