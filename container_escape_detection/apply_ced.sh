@@ -15,8 +15,8 @@ function main()
 {
     pushd .
 
-    if [ ! -d " $KERNEL_BUILD_ROOT/security/container_escape_detection" ]; then
-        mkdir $KERNEL_BUILD_ROOT/security/container_escape_detection
+    if [ ! -d "$KERNEL_BUILD_ROOT/security/container_escape_detection" ]; then
+        mkdir -p $KERNEL_BUILD_ROOT/security/container_escape_detection
     fi
 
     cd $KERNEL_BUILD_ROOT/security/container_escape_detection

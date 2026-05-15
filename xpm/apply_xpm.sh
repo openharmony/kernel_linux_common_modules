@@ -10,14 +10,19 @@ KERNEL_BUILD_ROOT=$2
 PRODUCT_NAME=$3
 KERNEL_VERSION=$4
 XPM_SOURCE_ROOT=$OHOS_SOURCE_ROOT/kernel/linux/common_modules/xpm
+XPM_HEADER_SOURCE_ROOT=$OHOS_SOURCE_ROOT/kernel/linux/linux-5.10/include/linux
 
 function main()
 {
     pushd .
 
-    if [ ! -d " $KERNEL_BUILD_ROOT/security/xpm" ]; then
-        mkdir $KERNEL_BUILD_ROOT/security/xpm
+    if [ ! -d "$KERNEL_BUILD_ROOT/security/xpm" ]; then
+        mkdir -p $KERNEL_BUILD_ROOT/security/xpm
     fi
+
+    cd $KERNEL_BUILD_ROOT/include/linux
+    ln -s -f $(realpath --relative-to=$KERNEL_BUILD_ROOT/include/linux $XPM_HEADER_SOURCE_ROOT)/xpm.h ./
+    ln -s -f $(realpath --relative-to=$KERNEL_BUILD_ROOT/include/linux $XPM_HEADER_SOURCE_ROOT)/xpm_types.h ./
 
     cd $KERNEL_BUILD_ROOT/security/xpm
     ln -s -f $(realpath --relative-to=$KERNEL_BUILD_ROOT/security/xpm/  $XPM_SOURCE_ROOT)/* ./
