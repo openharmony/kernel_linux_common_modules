@@ -28,8 +28,6 @@ HEADERS=(
     "memcheck.h"
     "hyperhold_inf.h"
     "lowmem_dbg.h"
-    "xpm.h"
-    "xpm_types.h"
     "zswapd.h"
     "mm_purgeable.h"
     "reclaim_acct.h"
