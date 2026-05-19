@@ -15,8 +15,8 @@ function main()
 {
     pushd .
 
-    if [ ! -d " $KERNEL_BUILD_ROOT/security/xpm" ]; then
-        mkdir $KERNEL_BUILD_ROOT/security/xpm
+    if [ ! -d "$KERNEL_BUILD_ROOT/security/xpm" ]; then
+        mkdir -p $KERNEL_BUILD_ROOT/security/xpm
     fi
 
     cd $KERNEL_BUILD_ROOT/security/xpm
