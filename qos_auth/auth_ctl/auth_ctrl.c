@@ -532,7 +532,6 @@ bool check_authorized(unsigned int func_id, unsigned int type)
 	mutex_lock(&ua_idr_mutex);
 	if (!ua_idr) {
 		mutex_unlock(&ua_idr_mutex);
-		pr_err("[AUTH_CTRL] authority idr table missed, auth failed\n");
 		return authorized;
 	}
 
@@ -540,11 +539,9 @@ bool check_authorized(unsigned int func_id, unsigned int type)
 	if (!auth) {
 		if (uid != SUPER_UID) {
 			mutex_unlock(&ua_idr_mutex);
-			pr_err("[AUTH_CTRL] no auth data for this pid = %d\n, tgid");
 			return authorized;
 		} else if (init_super_authority(tgid)) {
 			mutex_unlock(&ua_idr_mutex);
-			pr_err("[AUTH_CTRL] init super authority failed\n");
 			return authorized;
 		}
 
@@ -560,7 +557,6 @@ bool check_authorized(unsigned int func_id, unsigned int type)
 	mutex_lock(&auth->mutex);
 	if (auth->status == AUTH_STATUS_DEAD) {
 		mutex_unlock(&auth->mutex);
-		pr_info("[AUTH_CTRL] not valid auth for pid %d\n", tgid);
 		put_auth_struct(auth);
 		return authorized;
 	}
