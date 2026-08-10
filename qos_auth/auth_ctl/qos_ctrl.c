@@ -492,7 +492,7 @@ static long ctrl_qos_operation(int abi, void __user *uarg)
 	int ret = -1;
 
 #pragma GCC diagnostic push
-#pragma GCC diagonstic ignored "-Wpointer-to-int-cast"
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
 
 	switch (abi) {
 	case QOS_IOCTL_ABI_ARM32:
@@ -712,25 +712,19 @@ long do_qos_ctrl_ioctl(int abi, struct file *file, unsigned int cmd, unsigned lo
 	unsigned int func_cmd = _IOC_NR(cmd);
 
 	if (uarg == NULL) {
-		pr_err("%s: invalid user uarg\n", __func__);
 		return -EINVAL;
 	}
 
 	if (_IOC_TYPE(cmd) != QOS_CTRL_IPC_MAGIG) {
-		pr_err("%s: qos ctrl magic fail, TYPE=%d\n",
-		       __func__, _IOC_TYPE(cmd));
 		return -EINVAL;
 	}
 
 	if (func_cmd >= QOS_CTRL_MAX_NR) {
-		pr_err("%s: qos ctrl cmd error, cmd:%d\n",
-		       __func__, _IOC_TYPE(cmd));
 		return -EINVAL;
 	}
 
 #ifdef CONFIG_QOS_AUTHORITY
 	if (!check_authorized(func_cmd, QOS_AUTH_FLAG)) {
-		pr_err("[QOS_CTRL] %s: pid not authorized\n", __func__);
 		return -PID_NOT_AUTHORIZED;
 	}
 #endif
