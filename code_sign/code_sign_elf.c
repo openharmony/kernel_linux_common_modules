@@ -50,6 +50,15 @@ static void parse_block_hdr(block_hdr_t *out, char *ptr)
 
 static int get_block_headers(sign_block_t *sign_block, char *sign_data_ptr)
 {
+	/* sign_block_num is read from the file; bound it against sign_data_size so
+	 * the loop below cannot read block headers past the end of sign_data_ptr.
+	 */
+	if (sign_block->sign_head.sign_block_num >
+	    sign_block->sign_head.sign_data_size / sizeof(block_hdr_t)) {
+		code_sign_log_error("sign block num exceeds sign data size: num %u, size %u",
+				    sign_block->sign_head.sign_block_num, sign_block->sign_head.sign_data_size);
+		return -EINVAL;
+	}
 	/* parse all block headers */
 	for (int i = 0; i < sign_block->sign_head.sign_block_num; i++) {
 		block_hdr_t *tmp_block_hdr = (block_hdr_t *) (sign_data_ptr + sizeof(block_hdr_t) * i);

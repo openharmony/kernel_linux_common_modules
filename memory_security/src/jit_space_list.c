@@ -69,7 +69,7 @@ void delete_jit_space(struct list_head *head, unsigned long begin, unsigned long
 				node->end = begin;
 				list_add(&(new->head), cur);
 			} else if (begin != node->begin) { // [ node | cut |]
-				node->end == begin;
+				node->end = begin;
 			} else if (end != node->end) { // [| cut | node ]
 				node->begin = end;
 			}
