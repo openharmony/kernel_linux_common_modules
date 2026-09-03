@@ -290,35 +290,25 @@ static int find_elf_code_segment_info(const char *phdr_info, struct elf_info *el
 	return 0;
 }
 
-static int handle_skip_case(struct file *file, struct exec_file_signature_info **code_segment_info) {
-	struct exec_file_signature_info *tmp_info = NULL;
-	if (*code_segment_info == NULL) {
-		tmp_info = kzalloc(sizeof(struct exec_file_signature_info), GFP_KERNEL);
-		if (tmp_info == NULL) {
-			return -ENOMEM;
-		}
-	} else {
-		tmp_info = *code_segment_info;
-	}
+static int handle_skip_case(struct file *file, struct exec_file_signature_info **code_segment_info)
+{
+	struct exec_file_signature_info *tmp_info;
 
-	if (tmp_info->code_segments == NULL) {
-		tmp_info->code_segments = kzalloc(sizeof(struct exec_segment_info), GFP_KERNEL);
-		if (tmp_info->code_segments == NULL) {
-			if (*code_segment_info == NULL) {
-				kfree(tmp_info);
-				tmp_info = NULL;
-			}
-			return -ENOMEM;
-		}
-		tmp_info->code_segment_count = 1;
-	}
+	/* code_segments is laid out inline at the tail of tmp_info, so freeing
+	 * tmp_info releases both - matching find_elf_code_segment_info's layout.
+	 */
+	tmp_info = kzalloc(sizeof(struct exec_file_signature_info) +
+			   sizeof(struct exec_segment_info), GFP_KERNEL);
+	if (tmp_info == NULL)
+		return -ENOMEM;
 
+	tmp_info->code_segments = (struct exec_segment_info *)((char *)tmp_info +
+			   sizeof(struct exec_file_signature_info));
+	tmp_info->code_segment_count = 1;
 	tmp_info->code_segments[0].file_offset = 0;
 	tmp_info->code_segments[0].size = file_inode(file)->i_size;
 
-	if (*code_segment_info == NULL) {
-		*code_segment_info = tmp_info;
-	}
+	*code_segment_info = tmp_info;
 	return 0;
 }
 
