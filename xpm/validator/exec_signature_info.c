@@ -580,36 +580,40 @@ int put_exec_file_signature_info(struct exec_file_signature_info *exec_info)
 	return 0;
 }
 
-static struct exec_file_signature_info *elf_code_segment_info_delete(struct rb_root *root,
+/* Returns true if the inode was found (and handled) in this tree, so the
+ * caller can skip searching the other tree; false if not present.
+ */
+static bool elf_code_segment_info_delete(struct rb_root *root,
 	int *node_count, struct inode *file_node)
 {
 	struct exec_file_signature_info *signature_info;
 
 	signature_info = rb_search_node(root, (uintptr_t)file_node);
-	if (signature_info != NULL) {
-		rb_erase_node(root, node_count, signature_info);
-		if (atomic_sub_return(1, &signature_info->reference) > 0)
-			signature_info->type |= FILE_SIGNATURE_DELETE;
-		else
-			kfree(signature_info);
-	}
-	return signature_info;
+	if (signature_info == NULL)
+		return false;
+
+	rb_erase_node(root, node_count, signature_info);
+	if (atomic_sub_return(1, &signature_info->reference) > 0)
+		signature_info->type |= FILE_SIGNATURE_DELETE;
+	else
+		kfree(signature_info);
+	return true;
 }
 
 void delete_exec_file_signature_info(struct inode *file_node)
 {
-	struct exec_file_signature_info *signature_info;
+	bool found;
 
 	if (file_node == NULL)
 		return;
 
 	write_lock(&fs_verity_tree_lock);
-	signature_info = elf_code_segment_info_delete(&fs_verity_tree, &fs_verity_node_count, file_node);
+	found = elf_code_segment_info_delete(&fs_verity_tree, &fs_verity_node_count, file_node);
 	write_unlock(&fs_verity_tree_lock);
-	if (signature_info != NULL)
+	if (found)
 		return;
 
 	write_lock(&dm_verity_tree_lock);
-	signature_info = elf_code_segment_info_delete(&dm_verity_tree, &dm_verity_node_count, file_node);
+	elf_code_segment_info_delete(&dm_verity_tree, &dm_verity_node_count, file_node);
 	write_unlock(&dm_verity_tree_lock);
 }
