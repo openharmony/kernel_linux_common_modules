@@ -138,15 +138,6 @@ static int dec_check_file_common(struct file *file, uint32_t dec_mode, const cha
     return dec_generic_path_check(&file->f_path, dec_mode, check_name);
 }
 
-static int dec_check_permission(struct file *file, int may_mask)
-{
-    if (may_mask <= 0) {
-        return 0;
-    }
-    uint32_t dec_mode = dec_acc_permission_change(may_mask);
-    return dec_check_file_common(file, dec_mode, __func__);
-}
-
 static int dec_check_open(struct file *file)
 {
     if (!file) {
@@ -232,7 +223,6 @@ static int dec_file_truncate(struct file *file)
 #endif
 
 static struct security_hook_list dec_hooks[] __ro_after_init = {
-    LSM_HOOK_INIT(file_permission, dec_check_permission),
     LSM_HOOK_INIT(file_open, dec_check_open),
     LSM_HOOK_INIT(path_mknod, dec_path_mknod),
     LSM_HOOK_INIT(path_mkdir, dec_path_mkdir),
