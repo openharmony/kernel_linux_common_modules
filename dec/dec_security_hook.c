@@ -16,6 +16,7 @@
 #include <linux/path.h>
 #include <linux/mount.h>
 #include <linux/limits.h>
+#include <linux/version.h>
 
 #include "dec_security_hook.h"
 #include "dec_common.h"
@@ -218,6 +219,18 @@ static int dec_path_access(const struct path *path, int mode)
     return dec_generic_path_check(path, dec_mode, __func__);
 }
 
+static int dec_path_truncate(const struct path *path)
+{
+    return dec_generic_path_check(path, DEC_WRITE, __func__);
+}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+static int dec_file_truncate(struct file *file)
+{
+    return dec_check_file_common(file, DEC_WRITE, __func__);
+}
+#endif
+
 static struct security_hook_list dec_hooks[] __ro_after_init = {
     LSM_HOOK_INIT(file_permission, dec_check_permission),
     LSM_HOOK_INIT(file_open, dec_check_open),
@@ -227,6 +240,10 @@ static struct security_hook_list dec_hooks[] __ro_after_init = {
     LSM_HOOK_INIT(path_rename, dec_path_rename),
     LSM_HOOK_INIT(path_unlink, dec_path_unlink),
     LSM_HOOK_INIT(path_access, dec_path_access),
+    LSM_HOOK_INIT(path_truncate, dec_path_truncate),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+    LSM_HOOK_INIT(file_truncate, dec_file_truncate),
+#endif
 };
 
 int dec_hook_init(void)
