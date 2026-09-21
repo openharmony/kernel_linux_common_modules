@@ -327,6 +327,37 @@ int handleAccess(const Command& cmd)
     return -1;
 }
 
+int handleTruncate(const Command& cmd)
+{
+    SetSelfTokenID(stringToUint64(cmd.tokenid));
+    int ret = truncate(cmd.path.c_str(), 0);
+    if (ret != 0) {
+        LOG_ERROR("Failed to truncate file: " << cmd.path << ", errno: " << errno << " - " << strerror(errno));
+        return -1;
+    }
+    LOG("Successfully truncated file: " << cmd.path);
+    return 0;
+}
+
+int handleFtruncate(const Command& cmd)
+{
+    SetSelfTokenID(stringToUint64(cmd.tokenid));
+    int fd = open(cmd.path.c_str(), O_WRONLY);
+    if (fd < 0) {
+        LOG_ERROR("Failed to open file for ftruncate: " << cmd.path << ", errno: " << errno << " - " << strerror(errno));
+        return -1;
+    }
+    int ret = ftruncate(fd, 0);
+    if (ret != 0) {
+        LOG_ERROR("Failed to ftruncate file: " << cmd.path << ", errno: " << errno << " - " << strerror(errno));
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    LOG("Successfully ftruncated file: " << cmd.path);
+    return 0;
+}
+
 int handleSet(const Command& cmd)
 {
     if (cmd.tokenid.empty()) {
@@ -571,6 +602,10 @@ int main(int argc, char* argv[])
         result = handleCopy(cmd);
     }  else if (cmd.cmd == "access") {
         result = handleAccess(cmd);
+    } else if (cmd.cmd == "truncate") {
+        result = handleTruncate(cmd);
+    } else if (cmd.cmd == "ftruncate") {
+        result = handleFtruncate(cmd);
     } else if (cmd.cmd == "set") {
         result = handleSet(cmd);
     } else if (cmd.cmd == "constraint") {
